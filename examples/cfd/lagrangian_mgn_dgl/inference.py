@@ -22,8 +22,14 @@ from typing import Any
 import hydra
 from hydra.utils import instantiate, to_absolute_path
 
+import dgl
+from dgl.dataloading import GraphDataLoader
+
+import matplotlib
 from matplotlib import animation
 from matplotlib import pyplot as plt
+
+matplotlib.use("TkAgg")  # for plotting
 
 import numpy as np
 
@@ -31,9 +37,8 @@ from omegaconf import DictConfig, OmegaConf
 
 import torch
 from torch import Tensor
-from torch_geometric.loader import DataLoader as PyGDataLoader
 
-from physicsnemo.datapipes.gnn.lagrangian_dataset import graph_update
+from physicsnemo.datapipes.gnn.lagrangian_dataset_dgl import graph_update
 from physicsnemo.launch.utils import load_checkpoint
 
 from loggers import get_gpu_info, init_python_logging
@@ -86,7 +91,7 @@ class MGNRollout:
         self.boundary_clamp = self.dataset.boundary_clamp
 
         # instantiate dataloader
-        self.dataloader = PyGDataLoader(
+        self.dataloader = GraphDataLoader(
             self.dataset,
             **cfg.test.dataloader,
         )
@@ -119,7 +124,7 @@ class MGNRollout:
         for graph in self.dataloader:
             graph = graph.to(self.device)
             # t == 0 at the start of a new sequence.
-            if graph.t[0].item() == 0:
+            if graph.ndata["t"][0].item() == 0:
                 if pred_pos:
                     yield torch.stack(pred_pos), torch.stack(gt_pos), node_type
 
@@ -132,11 +137,15 @@ class MGNRollout:
                 pred_pos.append(position)
                 gt_pos.append(position)
 
-            graph.x = self.dataset.pack_inputs(position, vel_history, node_type)
-            graph.pos = position
+            graph.ndata["x"] = self.dataset.pack_inputs(
+                position, vel_history, node_type
+            )
+            graph.ndata["pos"] = position
             graph_update(graph, self.radius)
 
-            acceleration = self.model(graph.x, graph.edge_attr, graph)  # predict
+            acceleration = self.model(
+                graph.ndata["x"], graph.edata["x"], graph
+            )  # predict
 
             # update the inputs using the prediction from previous iteration
             position, velocity = self.time_integrator(
