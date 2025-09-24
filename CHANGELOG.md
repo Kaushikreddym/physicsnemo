@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a device aware kNN method to physicsnemo.utils.neighbors. Works with CPU or GPU
   by dispatching to the proper optimized library, and torch.compile compatible.
 - Added additional testing of the DoMINO datapipe.
+- Examples: added a new example for full-waveform inversion using diffusion
+  models. Accessible in `examples/geophysics/diffusion_fwi`.
 
 ### Changed
 
