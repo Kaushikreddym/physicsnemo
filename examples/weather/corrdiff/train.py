@@ -671,7 +671,6 @@ def main(cfg: DictConfig) -> None:
 
                     cur_nimg += cfg.training.hp.total_batch_size
                     done = cur_nimg >= cfg.training.hp.training_duration
-
                 with nvtx.annotate("validation", color="red"):
                     # Validation
                     if validation_dataset_iterator is not None:
