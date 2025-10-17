@@ -1,0 +1,26 @@
+hydra:
+    job:
+          chdir: false
+          name: era5_regression
+    run:
+          dir: ./output/${hydra:job.name}
+    searchpath:
+          - pkg://conf/base # Do not modify
+
+# Base parameters for dataset, model, training, and validation
+defaults:
+
+    - dataset: era5
+    - model: regression
+    - model_size: normal
+    - training: ${model}
+dataset:
+    data_path: /beegfs/muduchuru/data/era5/combined
+    stats_path: /beegfs/muduchuru/data/era5/europe_stats.json
+training:
+    hp:
+        training_duration: 1000000
+wandb:
+    mode: offline
+    results_dir: "./wandb"
+    watch_model: false
