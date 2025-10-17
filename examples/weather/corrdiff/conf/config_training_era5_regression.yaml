@@ -17,6 +17,10 @@ defaults:
 dataset:
     data_path: /beegfs/muduchuru/data/era5/combined
     stats_path: /beegfs/muduchuru/data/era5/europe_stats.json
+validation:
+    data_path: /beegfs/muduchuru/data/era5/combined
+    stats_path: /beegfs/muduchuru/data/era5/europe_stats.json
+    val_years: [2021, 2024]  # or your desired validation years
 training:
     hp:
         training_duration: 1000000
