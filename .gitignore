@@ -165,6 +165,8 @@ nsight-systems*
 build/
 mlruns/
 checkpoints/
+examples/weather/corrdiff/wandb
+examples/weather/corrdiff/tensorboard
 
 # Hydra
 outputs/
@@ -174,3 +176,8 @@ multirun/
 # SLURM
 slurm-*.out
 sbatch_logs/
+
+
+#model checkpoints
+*.mdlus
+*.pt
