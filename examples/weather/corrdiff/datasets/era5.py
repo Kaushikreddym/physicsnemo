@@ -17,6 +17,9 @@ class era5(DownscalingDataset):
     def __init__(
         self,
         data_path: str,
+        train: bool = True,
+        train_years: Tuple[int, int] = (1999, 2020),
+        val_years: Tuple[int, int] = (2021, 2024),
         input_channels: Optional[List[str]] = None,
         output_channels: Optional[List[str]] = None,
         normalize: bool = True,
@@ -25,13 +28,28 @@ class era5(DownscalingDataset):
     ):
         self.data_path = data_path
         self.normalize = normalize
-        self.output_channel_list = output_channels
-        self.input_channel_list = input_channels
         self.patch_size = patch_size
+
         # Find all combined files
-        self.files = sorted(glob.glob(os.path.join(data_path, "E5pl00_1D_*.nc")))
-        if not self.files:
+        all_files = sorted(glob.glob(os.path.join(data_path, "E5pl00_1D_*.nc")))
+        if not all_files:
             raise FileNotFoundError(f"No combined ERA5 files found in {data_path}")
+
+        # Extract year from filenames and filter
+        def get_year(filename):
+            basename = os.path.basename(filename)
+            parts = basename.split("_")
+            dt = datetime.datetime.strptime(parts[2], "%Y-%m-%d")
+            return dt.year
+
+        if train:
+            start_year, end_year = train_years
+        else:
+            start_year, end_year = val_years
+
+        self.files = [f for f in all_files if start_year <= get_year(f) <= end_year]
+        if not self.files:
+            raise ValueError(f"No files found for {'train' if train else 'validation'} years {start_year}-{end_year}")
 
         # Load channel names from first file
         with xr.open_dataset(self.files[0]) as ds:

@@ -1,0 +1,9 @@
+type: era5
+# Path to .nc data file. Must be overridden.
+data_path: ???
+# Path to json stats file. Must be overriden.
+stats_path: ???
+# Names of output channels.
+output_channels: ["tas", "pr"]
+input_channels: ['vo850', 'vo700', 'vo500', 'vo200', 't850', 't700', 't500', 't200', 'r850', 'r700', 'r500', 'r200', 'q850', 'q700', 'q500', 'q200', 'pr', 'tas', 'tasmax', 'tasmin']
+normalize: True
