@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored DiTBlock to be more modular
 - Added NATTEN 2D neighborhood attention backend for DiTBlock
 - Migrated blood flow example to PyTorch Geometric.
+- Refactored DoMINO model code and examples for performance optimizations and improved readability.
 - Migrated HydroGraphNet example to PyTorch Geometric.
 - Support for saving and loading nested `physicsnemo.Module`s. It is now
   possible to create nested modules with `m = Module(submodule, ...)`, and save
