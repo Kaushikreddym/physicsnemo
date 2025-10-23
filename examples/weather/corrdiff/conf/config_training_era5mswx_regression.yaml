@@ -1,0 +1,32 @@
+hydra:
+    job:
+          chdir: false
+          name: era5mswx_regression
+    run:
+          dir: ./output/${hydra:job.name}
+    searchpath:
+          - pkg://conf/base # Do not modify
+
+# Base parameters for dataset, model, training, and validation
+defaults:
+
+    - dataset: era5mswx
+    - model: regression
+    - model_size: normal
+    - training: ${model}
+dataset:
+    data_path: /beegfs/muduchuru/data/
+    stats_era5: /beegfs/muduchuru/data/era5/europe_stats.json
+    stats_mswx: /beegfs/muduchuru/data/mswx/mswx_stats.json
+validation:
+    data_path: /beegfs/muduchuru/data/
+    stats_era5: /beegfs/muduchuru/data/era5/europe_stats.json
+    stats_mswx: /beegfs/muduchuru/data/mswx/mswx_stats.json
+    val_years: [2021, 2024]  # or your desired validation years
+training:
+    hp:
+        training_duration: 1000000
+wandb:
+    mode: offline
+    results_dir: "./wandb"
+    watch_model: false

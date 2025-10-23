@@ -188,7 +188,6 @@ def main(cfg: DictConfig) -> None:
         validation=validation,
         sampler_start_idx=cur_nimg,
     )
-
     # Parse image configuration & update model args
     dataset_channels = len(dataset.input_channels())
     img_in_channels = dataset_channels
