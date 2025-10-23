@@ -165,8 +165,8 @@ nsight-systems*
 build/
 mlruns/
 checkpoints/
-examples/weather/corrdiff/wandb
-examples/weather/corrdiff/tensorboard
+examples/weather/corrdiff/wandb*
+examples/weather/corrdiff/tensorboard*
 
 # Hydra
 outputs/
