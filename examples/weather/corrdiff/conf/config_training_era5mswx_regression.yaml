@@ -12,7 +12,7 @@ defaults:
 
     - dataset: era5mswx
     - model: regression
-    - model_size: normal
+    - model_size: mini
     - training: ${model}
 dataset:
     data_path: /beegfs/muduchuru/data/
@@ -26,6 +26,9 @@ validation:
 training:
     hp:
         training_duration: 1000000
+        patch_shape_x: 128
+        patch_shape_y: 128
+        patch_num: 1
 wandb:
     mode: offline
     results_dir: "./wandb"

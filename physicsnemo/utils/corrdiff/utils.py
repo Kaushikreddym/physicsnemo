@@ -319,27 +319,55 @@ class NetCDFWriter:
 ############################################################################
 
 
+import datetime
+
 def get_time_from_range(times_range, time_format="%Y-%m-%dT%H:%M:%S"):
-    """Generates a list of times within a given range.
+    """
+    Generates a list of times within a given range.
 
     Args:
-        times_range: A list containing start time, end time, and optional interval (hours).
-        time_format: The format of the input times (default: "%Y-%m-%dT%H:%M:%S").
+        times_range: A list containing:
+            - start time (str)
+            - end time (str)
+            - optional interval (e.g. "1h", "3h", "1d").
+              Defaults to "1h" if not provided.
+        time_format: Format of input/output time strings.
 
     Returns:
-        A list of times within the specified range.
+        List of time strings within the specified range.
     """
 
     start_time = datetime.datetime.strptime(times_range[0], time_format)
     end_time = datetime.datetime.strptime(times_range[1], time_format)
-    interval = (
-        datetime.timedelta(hours=times_range[2])
-        if len(times_range) > 2
-        else datetime.timedelta(hours=1)
-    )
 
-    times = [
-        t.strftime(time_format)
-        for t in time_range(start_time, end_time, interval, inclusive=True)
-    ]
+    # Default interval = 1 hour
+    interval = datetime.timedelta(hours=1)
+    import ipdb; ipdb.set_trace()
+    # Parse interval if provided
+    if len(times_range) > 2:
+        interval_arg = times_range[2]
+        if isinstance(interval_arg, str):
+            if interval_arg.endswith("h"):
+                hours = float(interval_arg[:-1])
+                interval = datetime.timedelta(hours=hours)
+            elif interval_arg.endswith("d"):
+                days = float(interval_arg[:-1])
+                interval = datetime.timedelta(days=days)
+            else:
+                raise ValueError(
+                    f"Unsupported interval format: '{interval_arg}'. Use 'h' or 'd'."
+                )
+        else:
+            # If it's numeric, assume hours (for backward compatibility)
+            interval = datetime.timedelta(hours=float(interval_arg))
+
+    # Generate timestamps
+    times = []
+    t = start_time
+    while t <= end_time:
+        times.append(t.strftime(time_format))
+        t += interval
+
     return times
+
+

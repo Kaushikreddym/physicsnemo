@@ -8,10 +8,13 @@ import cv2
 from datasets.base import ChannelMetadata, DownscalingDataset
 import datetime
 import cftime
+
+
 class era5(DownscalingDataset):
     """
-    Dataset for combined ERA5 daily files with shape (channel, lat, lon).
-    Each sample is a daily file containing all variables as channels.
+    ERA5 daily combined files stored as:
+      image[channel, lat, lon]
+    Each file corresponds to one day.
     """
 
     def __init__(
@@ -24,171 +27,159 @@ class era5(DownscalingDataset):
         output_channels: Optional[List[str]] = None,
         normalize: bool = True,
         stats_path: Optional[str] = None,
-        patch_size: Optional[Tuple[int, int]] = (128,128),
+        patch_size: Optional[Tuple[int, int]] = (128, 128),
+        center_latlon: Optional[Tuple[float, float]] = None,
     ):
         self.data_path = data_path
         self.normalize = normalize
         self.patch_size = patch_size
+        self.center_latlon = center_latlon
 
-        # Find all combined files
+        # ---------------- File List Filter by Year ----------------
         all_files = sorted(glob.glob(os.path.join(data_path, "E5pl00_1D_*.nc")))
         if not all_files:
-            raise FileNotFoundError(f"No combined ERA5 files found in {data_path}")
+            raise FileNotFoundError(f"No ERA5 files found in {data_path}")
 
-        # Extract year from filenames and filter
-        def get_year(filename):
-            basename = os.path.basename(filename)
-            parts = basename.split("_")
-            dt = datetime.datetime.strptime(parts[2], "%Y-%m-%d")
-            return dt.year
+        def get_year(filepath):
+            basename = os.path.basename(filepath)
+            return int(basename.split("_")[2].split("-")[0])
 
-        if train:
-            start_year, end_year = train_years
-        else:
-            start_year, end_year = val_years
-
+        start_year, end_year = train_years if train else val_years
         self.files = [f for f in all_files if start_year <= get_year(f) <= end_year]
         if not self.files:
-            raise ValueError(f"No files found for {'train' if train else 'validation'} years {start_year}-{end_year}")
+            raise ValueError(f"No files found for {start_year}-{end_year}")
 
-        # Load channel names from first file
+        # ---------------- Read Metadata ----------------
         with xr.open_dataset(self.files[0]) as ds:
             self.channels = list(ds.channel.values)
-            lat_1d = ds.image.lat.values[:128]
-            lon_1d = ds.image.lon.values[:128]
-        lon2d, lat2d = np.meshgrid(lon_1d, lat_1d)
-        self.lat = lat2d
-        self.lon = lon2d
+            lat = ds.image.lat.values
+            lon = ds.image.lon.values
 
-        # Set input/output channels
+        lon2d, lat2d = np.meshgrid(lon, lat)
+        self.lat_full = lat2d
+        self.lon_full = lon2d
+
+        self.top = None
+        self.left = None
+
+        # ---------------- Region-of-Interest Crop ----------------
+        if self.patch_size:
+            ph, pw = self.patch_size
+
+            if self.center_latlon:
+                self.top, self.left = self._get_center_indices(
+                    self.lat_full, self.lon_full, *self.center_latlon, ph, pw
+                )
+            else:
+                # default: use full grids (random crop later)
+                self.top, self.left = 0, 0
+
+            self.lat = self.lat_full[self.top:self.top + ph, self.left:self.left + pw]
+            self.lon = self.lon_full[self.top:self.top + ph, self.left:self.left + pw]
+        else:
+            self.lat = self.lat_full
+            self.lon = self.lon_full
+
+        # ---------------- Channels ----------------
         self.input_channels_list = input_channels or self.channels
         self.output_channels_list = output_channels or self.channels
 
-        # Load stats if provided
-        if stats_path is not None and os.path.exists(stats_path):
+        # ---------------- Normalization stats ----------------
+        if normalize and stats_path and os.path.exists(stats_path):
             import json
             with open(stats_path, "r") as f:
                 stats = json.load(f)
-            self.input_mean = np.array([stats[ch]["mean"] for ch in self.input_channels_list])[:, None, None].astype(np.float32)
-            self.input_std = np.array([stats[ch]["std"] for ch in self.input_channels_list])[:, None, None].astype(np.float32)
-            self.output_mean = np.array([stats[ch]["mean"] for ch in self.output_channels_list])[:, None, None].astype(np.float32)
-            self.output_std = np.array([stats[ch]["std"] for ch in self.output_channels_list])[:, None, None].astype(np.float32)
-        else:
-            self.input_mean = 0.0
-            self.input_std = 1.0
-            self.output_mean = 0.0
-            self.output_std = 1.0
 
-        # Extract time from filenames
+            def get_stats(channel_list):
+                mean = np.array([stats[ch]["mean"] for ch in channel_list], dtype=np.float32)[:, None, None]
+                std = np.array([stats[ch]["std"] for ch in channel_list], dtype=np.float32)[:, None, None]
+                return mean, std
+
+            self.input_mean, self.input_std = get_stats(self.input_channels_list)
+            self.output_mean, self.output_std = get_stats(self.output_channels_list)
+        else:
+            self.input_mean = self.input_std = 1.0
+            self.output_mean = self.output_std = 1.0
+
+        # ---------------- Time Metadata ----------------
         self.times = [self._extract_time_from_filename(f) for f in self.files]
-    def convert_datetime_to_cftime(self,
-        time: datetime, cls=cftime.DatetimeGregorian
-    ) -> cftime.DatetimeGregorian:
-        """Convert a Python datetime object to a cftime DatetimeGregorian object."""
-        return cls(time.year, time.month, time.day, time.hour, time.minute, time.second)
+
+    # ----------------- Filename Time Extraction -----------------
+    def convert_datetime_to_cftime(self, time: datetime, cls=cftime.DatetimeGregorian):
+        return cls(time.year, time.month, time.day)
 
     def _extract_time_from_filename(self, filename):
-        # Example: E5pl00_1D_2022-01-01_17var.nc
-        basename = os.path.basename(filename)
-        parts = basename.split("_")
-        tdt = datetime.datetime.strptime(parts[2],"%Y-%m-%d")
-        tdt_cf = self.convert_datetime_to_cftime(tdt)
-        return tdt_cf  # '2022-01-01'
+        date_str = os.path.basename(filename).split("_")[2]
+        dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+        return self.convert_datetime_to_cftime(dt)
 
+    # ----------------- Spatial Index Utility -----------------
+    @staticmethod
+    def _get_center_indices(lat2d, lon2d, center_lat, center_lon, ph, pw):
+        dist = (lat2d - center_lat) ** 2 + (lon2d - center_lon) ** 2
+        cy, cx = np.unravel_index(np.argmin(dist), dist.shape)
+        top = max(0, min(cy - ph // 2, lat2d.shape[0] - ph))
+        left = max(0, min(cx - pw // 2, lat2d.shape[1] - pw))
+        return top, left
+
+    # ----------------- Dataset API -----------------
     def __len__(self):
         return len(self.files)
 
     def __getitem__(self, idx):
-        # Load file
         file = self.files[idx]
         ds = xr.open_dataset(file)
-        arr = ds["image"].values.astype(np.float32)  # (channel, lat, lon)
+        arr = ds["image"].values.astype(np.float32)  # (1, C, H, W)
         ds.close()
 
-        # Select input/output channels
-        input_idx = [self.channels.index(ch) for ch in self.input_channels_list]
-        output_idx = [self.channels.index(ch) for ch in self.output_channels_list]
-        input_arr = arr[0, input_idx]
-        output_arr = arr[0, output_idx]
+        input_arr = arr[0, [self.channels.index(ch) for ch in self.input_channels_list]]
+        output_arr = arr[0, [self.channels.index(ch) for ch in self.output_channels_list]]
 
-        # Normalize
-        input_arr = self.normalize_input(input_arr)
-        output_arr = self.normalize_output(output_arr)
-        # --- 🔹 Random patching ---
-        if self.patch_size is not None:
-            ph, pw = self.patch_size
-            h, w = input_arr.shape[-2:]  # 203, 210
+        # Normalization
+        input_arr = (input_arr - self.input_mean) / self.input_std
+        output_arr = (output_arr - self.output_mean) / self.output_std
 
-            if ph > h or pw > w:
-                raise ValueError(f"Patch size {self.patch_size} larger than image {h, w}")
+        ph, pw = self.patch_size
 
-            top = np.random.randint(0, h - ph + 1)
-            left = np.random.randint(0, w - pw + 1)
+        if self.center_latlon:
+            # ✅ fixed ROI crop
+            top, left = self.top, self.left
+        else:
+            # ✅ random crop during training
+            H, W = input_arr.shape[-2:]
+            top = np.random.randint(0, H - ph + 1)
+            left = np.random.randint(0, W - pw + 1)
 
-            input_arr = input_arr[:, top:top + ph, left:left + pw]
-            output_arr = output_arr[:, top:top + ph, left:left + pw]
+        # Apply spatial crop
+        input_arr = input_arr[:, top:top + ph, left:left + pw]
+        output_arr = output_arr[:, top:top + ph, left:left + pw]
 
-        # Lead time label
-        lead_time_label = 0
-
-        input_arr = self._create_lowres_(input_arr,4)
+        # Low-res degraded LR input
+        input_arr = self._create_lowres_(input_arr, factor=8)
+        lead_time_label = 0  # static dataset for now
 
         return output_arr, input_arr, lead_time_label
 
+    def longitude(self): return self.lon
+    def latitude(self): return self.lat
+    def time(self): return self.times
+    def image_shape(self): return self.lat.shape  # ✅ real shape
 
-    def normalize_input(self, x: np.ndarray) -> np.ndarray:
-        if self.normalize:
-            return (x - self.input_mean) / self.input_std
-        return x
+    def input_channels(self): return [ChannelMetadata(name=n) for n in self.input_channels_list]
+    def output_channels(self): return [ChannelMetadata(name=n) for n in self.output_channels_list]
 
-    def denormalize_input(self, x: np.ndarray) -> np.ndarray:
-        if self.normalize:
-            return x * self.input_std + self.input_mean
-        return x
+    def info(self): return {
+        "input_norm": (self.input_mean.squeeze(), self.input_std.squeeze()),
+        "target_norm": (self.output_mean.squeeze(), self.output_std.squeeze()),
+        "patch_size": self.patch_size,
+        "center_crop": self.center_latlon is not None,
+    }
 
-    def normalize_output(self, x: np.ndarray) -> np.ndarray:
-        if self.normalize:
-            return (x - self.output_mean) / self.output_std
-        return x
-
-    def denormalize_output(self, x: np.ndarray) -> np.ndarray:
-        if self.normalize:
-            return x * self.output_std + self.output_mean
-        return x
-
-    def longitude(self) -> np.ndarray:
-        return self.lon
-
-    def latitude(self) -> np.ndarray:
-        return self.lat
-
-    def input_channels(self) -> List[ChannelMetadata]:
-        return [ChannelMetadata(name=n) for n in self.input_channels_list]
-
-    def output_channels(self) -> List[ChannelMetadata]:
-        return [ChannelMetadata(name=n) for n in self.output_channels_list]
-
-    def time(self) -> List:
-        return self.times
-
-    def image_shape(self) -> Tuple[int, int]:
-        # return (len(self.lat), len(self.lon))
-        return (128, 128)
-
-    def info(self) -> dict:
-        return {
-            "input_normalization": (self.input_mean.squeeze(), self.input_std.squeeze()),
-            "target_normalization": (self.output_mean.squeeze(), self.output_std.squeeze()),
-        }
-
+    # ----------------- Low-res generator -----------------
     @staticmethod
-    def _create_lowres_(x, factor=4):
-        # downsample the high res imag
+    def _create_lowres_(x, factor=8):
+        # reduce & upscale using bicubic
         x = x.transpose(1, 2, 0)
-        x = x[::factor, ::factor, :]  # 8x8x3  #subsample
-        # upsample with bicubic interpolation to bring the image to the nominal size
-        x = cv2.resize(
-            x, (x.shape[1] * factor, x.shape[0] * factor), interpolation=cv2.INTER_CUBIC
-        )  # 32x32x3
-        x = x.transpose(2, 0, 1)  # 3x32x32
-        return x
+        x = x[::factor, ::factor]
+        x = cv2.resize(x, (x.shape[1] * factor, x.shape[0] * factor), interpolation=cv2.INTER_CUBIC)
+        return x.transpose(2, 0, 1)
