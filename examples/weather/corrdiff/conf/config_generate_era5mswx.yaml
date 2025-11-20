@@ -2,7 +2,7 @@
 hydra:
     job:
           chdir: false
-          name: generate_era5
+          name: generate_era5mswx
     run:
           dir: ./outputs/${hydra:job.name}
     searchpath:
@@ -11,7 +11,7 @@ hydra:
 # Base parameters for dataset, model, and generation
 defaults:
 
-    - dataset: era5
+    - dataset: era5mswx
     # The dataset type for training.
     # Accepted values:
     #   `gefs_hrrr`: full GEFS-HRRR dataset for continental US.
@@ -30,15 +30,15 @@ defaults:
 # Modify or add below parameters that should be passed as argument to the
 # user-defined dataset class.
 dataset:
-    data_path: /beegfs/muduchuru/data/era5/combined
-    stats_path: /beegfs/muduchuru/data/era5/europe_stats.json
+    data_path: /beegfs/muduchuru/data/
+    stats_era5: /beegfs/muduchuru/data/era5/europe_stats.json
+    stats_mswx: /beegfs/muduchuru/data/mswx/mswx_stats.json
     center_latlon: [51.0, 10.0]
     train: False
-    # patch_size: None
 # Generation parameters to specialize
 generation:
     inference_mode: regression
-    num_ensembles: 32
+    num_ensembles: 8
     # int, number of ensembles to generate per input
     seed_batch_size: 1
     # int, size of the batched inference

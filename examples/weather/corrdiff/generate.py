@@ -37,7 +37,7 @@ from physicsnemo import Module
 from physicsnemo.utils.diffusion import deterministic_sampler, stochastic_sampler
 from physicsnemo.utils.corrdiff import (
     NetCDFWriter,
-    get_time_from_range,
+    # get_time_from_range,
     regression_step,
     diffusion_step,
 )
@@ -48,6 +48,58 @@ from helpers.generate_helpers import (
 )
 from helpers.train_helpers import set_patch_shape
 from datasets.dataset import register_dataset
+
+
+import datetime
+
+def get_time_from_range(times_range, time_format="%Y-%m-%dT%H:%M:%S"):
+    """
+    Generates a list of times within a given range.
+
+    Args:
+        times_range: A list containing:
+            - start time (str)
+            - end time (str)
+            - optional interval (e.g. "1h", "3h", "1d").
+              Defaults to "1h" if not provided.
+        time_format: Format of input/output time strings.
+
+    Returns:
+        List of time strings within the specified range.
+    """
+
+    start_time = datetime.datetime.strptime(times_range[0], time_format)
+    end_time = datetime.datetime.strptime(times_range[1], time_format)
+
+    # Default interval = 1 hour
+    interval = datetime.timedelta(hours=1)
+    # Parse interval if provided
+    if len(times_range) > 2:
+        interval_arg = times_range[2]
+        if isinstance(interval_arg, str):
+            if interval_arg.endswith("h"):
+                hours = float(interval_arg[:-1])
+                interval = datetime.timedelta(hours=hours)
+            elif interval_arg.endswith("d"):
+                days = float(interval_arg[:-1])
+                interval = datetime.timedelta(days=days)
+            else:
+                raise ValueError(
+                    f"Unsupported interval format: '{interval_arg}'. Use 'h' or 'd'."
+                )
+        else:
+            # If it's numeric, assume hours (for backward compatibility)
+            interval = datetime.timedelta(hours=float(interval_arg))
+
+    # Generate timestamps
+    times = []
+    t = start_time
+    while t <= end_time:
+        times.append(t.strftime(time_format))
+        t += interval
+
+    return times
+
 
 
 @hydra.main(version_base="1.2", config_path="conf", config_name="config_generate")

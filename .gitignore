@@ -167,7 +167,8 @@ mlruns/
 checkpoints/
 examples/weather/corrdiff/wandb*
 examples/weather/corrdiff/tensorboard*
-
+*.png
+*.gif
 # Hydra
 outputs/
 multirun/

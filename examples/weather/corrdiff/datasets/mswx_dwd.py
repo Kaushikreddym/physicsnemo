@@ -12,14 +12,11 @@ import json
 from datasets.base import ChannelMetadata, DownscalingDataset
 
 
-class era5_mswx(DownscalingDataset):
+class mswx_dwd(DownscalingDataset):
     """
-    ERA5 → MSWX downscaling dataset (full-resolution, no patching).
+    MSWX → DWD downscaling dataset (full-resolution, no patching).
     
-    ✅ Returns full HR MSWX and full HR ERA5 (interpolated)
-    ✅ Low-resolution version created internally using subsampling + bicubic resize
-    ✅ Supports static channels: elevation, lsm (when included in input_channels)
-    ✅ No cropping, no patch extraction, no center-latlon logic
+    ✅ Returns full HR MSWX and full HR DWD
     """
 
     # ----------------------------------------------------
@@ -31,9 +28,9 @@ class era5_mswx(DownscalingDataset):
     @staticmethod
     def _extract_date_from_filename(filename: str) -> datetime.datetime:
         base = os.path.basename(filename)
-        if base.startswith("E5pl00"):   # ERA5
+        if base.endswith("_de.nc"):   # ERA5
             parts = base.split("_")
-            return datetime.datetime.strptime(parts[2], "%Y-%m-%d")
+            return datetime.datetime.strptime(parts[3], "%Y-%m-%d")
         else:                           # MSWX YYYYDOY.nc
             parts = base.split(".")
             return datetime.datetime.strptime(parts[0], "%Y%j")
@@ -46,7 +43,7 @@ class era5_mswx(DownscalingDataset):
         lat_min, lat_max = float(np.min(ds.lat)), float(np.max(ds.lat))
         lon_min, lon_max = float(np.min(ds.lon)), float(np.max(ds.lon))
         self.era5_box = (lat_min, lat_max, lon_min, lon_max)
-        return self.era5_box
+        return self.ds_box
 
     @staticmethod
     def _crop_box(ds, box):
@@ -101,36 +98,46 @@ class era5_mswx(DownscalingDataset):
         self.normalize = normalize
 
         # -----------------------------------------
-        # ERA5 files
-        # -----------------------------------------
-        era5_files = sorted(glob.glob(os.path.join(data_path, "era5", "combined", "E5pl00_1D_*.nc")))
-        if not era5_files:
-            raise FileNotFoundError(f"No ERA5 files found in {data_path}")
-
-        era5_times = [self._extract_date_from_filename(f) for f in era5_files]
-
-        # -----------------------------------------
         # MSWX files (per-channel)
         # -----------------------------------------
         mswx_files = {}
         mswx_times = {}
 
-        for ch in output_channels:
+        for ch in input_channels:
             mswx_files[ch] = sorted(glob.glob(os.path.join(data_path, "mswx", ch, "*.nc")))
             if not mswx_files[ch]:
                 raise FileNotFoundError(f"No MSWX files found for channel {ch}")
 
             mswx_times[ch] = [self._extract_date_from_filename(f) for f in mswx_files[ch]]
 
-        self.era5_files = era5_files
+        # -----------------------------------------
+        # DWD files (per-channel)
+        # -----------------------------------------
+        dwd_files = {}
+        dwd_times = {}
+
+        for ch in output_channels:
+            dwd_files[ch] = sorted(glob.glob(os.path.join(data_path, "hyras_daily", ch, "*.nc")))
+            if not dwd_files[ch]:
+                raise FileNotFoundError(f"No DWD files found for channel {ch}")
+
+            dwd_times[ch] = [self._extract_date_from_filename(f) for f in dwd_files[ch]]
+
+        self.dwd_files = dwd_files
         self.mswx_files = mswx_files
 
         # -----------------------------------------
         # Intersect dates
         # -----------------------------------------
-        common = set(era5_times)
-        for ch in output_channels:
+        common = set(mswx_times[input_channels[0]])
+
+        # Intersect with remaining input channels
+        for ch in input_channels[1:]:
             common = common & set(mswx_times[ch])
+
+        # Intersect with all output channels
+        for ch in output_channels:
+            common = common & set(dwd_times[ch])
 
         self.common_times = sorted(list(common))
 
@@ -150,7 +157,7 @@ class era5_mswx(DownscalingDataset):
         # -----------------------------------------
         # Compute lat/lon grid from MSWX (full grid)
         # -----------------------------------------
-        self._get_extent(era5_files[0])
+        self._get_extent(dwd_files[0])
 
         # Define factor for UNet (number of downsampling layers)
         factor = 16
@@ -313,23 +320,23 @@ class era5_mswx(DownscalingDataset):
         # Normalize
         input_arr = self.normalize_input(arr_era5)
         output_arr = self.normalize_output(arr_mswx)
-        # # --- 🔹 Cropping logic ---
-        # if self.patch_size is not None:
-        #     ph, pw = self.patch_size
-        #     h, w = input_arr.shape[-2: ]
+        # --- 🔹 Cropping logic ---
+        if self.patch_size is not None:
+            ph, pw = self.patch_size
+            h, w = input_arr.shape[-2:]
 
-        #     if ph > h or pw > w:
-        #         raise ValueError(f"Patch size {self.patch_size} larger than image {h, w}")
+            if ph > h or pw > w:
+                raise ValueError(f"Patch size {self.patch_size} larger than image {h, w}")
 
-        #     if self.center_latlon is not None:
-        #         lat0, lon0 = self.center_latlon
-        #         top, left = self._get_center_indices(ds_mswx.lat.values, ds_mswx.lon.values, lat0, lon0, ph, pw)
-        #     else:
-        #         top = np.random.randint(0, h - ph + 1)
-        #         left = np.random.randint(0, w - pw + 1)
+            if self.center_latlon is not None:
+                lat0, lon0 = self.center_latlon
+                top, left = self._get_center_indices(ds_mswx.lat.values, ds_mswx.lon.values, lat0, lon0, ph, pw)
+            else:
+                top = np.random.randint(0, h - ph + 1)
+                left = np.random.randint(0, w - pw + 1)
 
-        #     input_arr = input_arr[:, top:top + ph, left:left + pw]
-        #     output_arr = output_arr[:, top:top + ph, left:left + pw]
+            input_arr = input_arr[:, top:top + ph, left:left + pw]
+            output_arr = output_arr[:, top:top + ph, left:left + pw]
         # Create LR version
         input_arr = self._create_lowres_(input_arr, factor=4)
         lead_time_label = 0
