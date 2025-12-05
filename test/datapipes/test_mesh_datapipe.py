@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -33,7 +33,7 @@ def test_mesh_datapipe(device, tmp_path, pytestconfig):
 
     import vtk
 
-    from physicsnemo.datapipes.cae import MeshDatapipe
+    from physicsnemo.datapipes.cae.mesh_datapipe import MeshDatapipe
 
     def _create_random_vtp_vtu_mesh(
         num_points: int, num_triangles: int, dir: str
