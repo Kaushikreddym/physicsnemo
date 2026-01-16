@@ -37,7 +37,7 @@ dataset:
     train: False
 # Generation parameters to specialize
 generation:
-    inference_mode: regression
+    #inference_mode: regression
     num_ensembles: 8
     # int, number of ensembles to generate per input
     seed_batch_size: 1

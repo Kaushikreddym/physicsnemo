@@ -1,0 +1,11 @@
+type: mswxdwd
+# Path to .nc data file. Must be overridden.
+data_path: ???
+# Path to json stats file. Must be overriden.
+stats_dwd: ???
+stats_mswx: ???
+# Names of output channels.
+output_channels: ["tas", "pr"]
+input_channels: ['tas', 'pr']
+static_channels: ["elevation","lsm",'dwd_mask','pos_embed']
+normalize: True

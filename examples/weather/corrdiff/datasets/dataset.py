@@ -24,7 +24,7 @@ import torch
 from physicsnemo.utils.diffusion import InfiniteSampler
 from physicsnemo.distributed import DistributedManager
 
-from datasets import base, cwb, hrrrmini, gefs_hrrr, era5, era5_mswx
+from datasets import base, cwb, hrrrmini, gefs_hrrr, era5, era5_mswx, mswxdwd
 
 
 # this maps all known dataset types to the corresponding init function
@@ -34,6 +34,7 @@ known_datasets = {
     "gefs_hrrr": gefs_hrrr.HrrrForecastGEFSDataset,
     "era5":era5.era5,
     "era5mswx":era5_mswx.era5_mswx,
+    "mswxdwd":mswxdwd.mswxdwd,
 }
 
 

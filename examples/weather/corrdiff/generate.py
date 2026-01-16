@@ -396,6 +396,8 @@ def main(cfg: DictConfig) -> None:
             data_loader = torch.utils.data.DataLoader(
                 dataset=dataset, sampler=sampler, batch_size=1, pin_memory=True
             )
+            first_image = dataset[0]
+            
             time_index = -1
             if dist.rank == 0:
                 writer = NetCDFWriter(

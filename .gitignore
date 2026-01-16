@@ -182,3 +182,4 @@ sbatch_logs/
 #model checkpoints
 *.mdlus
 *.pt
+*.nc

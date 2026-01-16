@@ -8,6 +8,8 @@ import cv2
 import datetime
 import cftime
 import json
+import xesmf as xe
+from pathlib import Path
 
 from datasets.base import ChannelMetadata, DownscalingDataset
 
@@ -42,7 +44,7 @@ class mswx_dwd(DownscalingDataset):
         ds = xr.open_dataset(filename)
         lat_min, lat_max = float(np.min(ds.lat)), float(np.max(ds.lat))
         lon_min, lon_max = float(np.min(ds.lon)), float(np.max(ds.lon))
-        self.era5_box = (lat_min, lat_max, lon_min, lon_max)
+        self.ds_box = (lat_min, lat_max, lon_min, lon_max)
         return self.ds_box
 
     @staticmethod
@@ -91,8 +93,10 @@ class mswx_dwd(DownscalingDataset):
         output_channels: Optional[List[str]] = None,
         static_channels: Optional[List[str]] = None,
         normalize: bool = True,
-        stats_era5: Optional[str] = None,
+        stats_dwd: Optional[str] = None,
         stats_mswx: Optional[str] = None,
+        patch_size: Optional[tuple] = (128,128),
+        center_latlon: Optional[tuple] = None,
     ):
         self.data_path = data_path
         self.normalize = normalize
@@ -102,7 +106,10 @@ class mswx_dwd(DownscalingDataset):
         # -----------------------------------------
         mswx_files = {}
         mswx_times = {}
-
+        
+        self.patch_size = patch_size
+        self.center_latlon = center_latlon
+        
         for ch in input_channels:
             mswx_files[ch] = sorted(glob.glob(os.path.join(data_path, "mswx", ch, "*.nc")))
             if not mswx_files[ch]:
@@ -147,7 +154,7 @@ class mswx_dwd(DownscalingDataset):
             start_year, end_year = val_years
 
         self.files = [
-            f for f in mswx_files[output_channels[0]]
+            f for f in dwd_files[output_channels[0]]
             if (dt := self._extract_date_from_filename(f)) in self.common_times
             and start_year <= dt.year <= end_year
         ]
@@ -157,42 +164,56 @@ class mswx_dwd(DownscalingDataset):
         # -----------------------------------------
         # Compute lat/lon grid from MSWX (full grid)
         # -----------------------------------------
-        self._get_extent(dwd_files[0])
+        self._get_extent(dwd_files[ch][0])
 
         # Define factor for UNet (number of downsampling layers)
         factor = 16
 
         with xr.open_dataset(self.files[0]) as ds:
-            if ds.lat.values[0] > ds.lat.values[-1]:
-                ds = ds.sortby("lat")
-
-            # crop MSWX to ERA5 domain (full field)
-            ds = self._crop_box(ds, self.era5_box)
+            # if ds.lat.values[0] > ds.lat.values[-1]:
+            #     ds = ds.sortby("lat")
 
             h, w = len(ds.lat), len(ds.lon)
 
             # crop so height and width are divisible by factor
             new_h = (h // factor) * factor
             new_w = (w // factor) * factor
-            lat_1d = ds.lat.values[:new_h]
-            lon_1d = ds.lon.values[:new_w]
-
-        lon2d, lat2d = np.meshgrid(lon_1d, lat_1d)
-        self.lat = lat2d
-        self.lon = lon2d
+            lat_2d = ds.lat.values[:new_h,:new_w]
+            lon_2d = ds.lon.values[:new_h,:new_w]
+        self.lat = lat_2d
+        self.lon = lon_2d
 
         # -----------------------------------------
         # Static features: elevation + land–sea mask
         # -----------------------------------------
-        with xr.open_dataset("/data01/FDS/muduchuru/GMTED/GMTED2010_15n015_00625deg.nc") as ds_elev:
+        with xr.open_dataset("/data01/FDS/muduchuru/Land/GMTED/GMTED2010_15n015_00625deg.nc") as ds_elev:
             ds_elev = ds_elev.rename({"latitude": "lat", "longitude": "lon"})
             ds_elev = self._fix_longitude(ds_elev)
-            ds_elev = ds_elev.interp(lat=lat_1d, lon=lon_1d)
+            ds_tgt = xr.Dataset(
+                {
+                    "lat": (("y", "x"), lat_2d),
+                    "lon": (("y", "x"), lon_2d),
+                }
+            )
+            weights_file = "gmted_to_curv_weights.nc"
+            reuse = Path(weights_file).exists()
+            regridder = xe.Regridder(ds_elev, ds_tgt, method="bilinear", reuse_weights=reuse, filename=weights_file)
+            ds_elev = regridder(ds_elev["elevation"])
             self.elev = ds_elev
 
-        with xr.open_dataset("/beegfs/muduchuru/data/imerg/IMERG_land_sea_mask.nc") as ds_lsm:
+        with xr.open_dataset("/data01/FDS/muduchuru/Atmos/IMERG/IMERG_land_sea_mask.nc") as ds_lsm:
             ds_lsm = self._fix_longitude(ds_lsm)
-            ds_lsm = ds_lsm.interp(lat=lat_1d, lon=lon_1d)
+            ds_tgt = xr.Dataset(
+                {
+                    "lat": (("y", "x"), lat_2d),
+                    "lon": (("y", "x"), lon_2d),
+                }
+            )
+            weights_file = "lsm_to_curv_weights.nc"
+            reuse = Path(weights_file).exists()
+            # import ipdb; ipdb.set_trace()
+            regridder = xe.Regridder(ds_lsm, ds_tgt, method="nearest_s2d", reuse_weights=reuse, filename=weights_file, ignore_degenerate=True, unmapped_to_nan=True)
+            ds_lsm = regridder(ds_lsm)
             self.lsm = ds_lsm
 
         # -----------------------------------------
@@ -205,8 +226,8 @@ class mswx_dwd(DownscalingDataset):
         # -----------------------------------------
         # Load normalization statistics
         # -----------------------------------------
-        if stats_era5 is not None and os.path.exists(stats_era5):
-            with open(stats_era5, "r") as f:
+        if stats_dwd is not None and os.path.exists(stats_dwd):
+            with open(stats_dwd, "r") as f:
                 stats = json.load(f)
             input_mean_list = [stats[ch]["mean"] for ch in self.input_channels_list]
             input_std_list = [stats[ch]["std"] for ch in self.input_channels_list]
@@ -243,12 +264,17 @@ class mswx_dwd(DownscalingDataset):
     def __len__(self):
         return len(self.files)
 
-    def _get_era5(self, t):
+    def _get_dwd(self, t):
         tstr = t.strftime("%Y-%m-%d")
-        file_match = next(f for f in self.era5_files if tstr in f)
-        ds = xr.open_dataset(file_match).isel(time=0)
-        return ds
+        datasets = []
 
+        for ch in self.output_channels_list:
+            file_match = next(f for f in self.dwd_files[ch] if tstr in f)
+            ds = xr.open_dataset(file_match)[ch].isel(time=0)
+            datasets.append(ds)
+        
+        return xr.concat(datasets, dim="channel").assign_coords(channel=self.output_channels_list)
+    
     def _get_mswx(self, t):
         tstr = t.strftime("%Y%j")
         datasets = []
@@ -258,11 +284,11 @@ class mswx_dwd(DownscalingDataset):
             with xr.open_dataset(file_match) as ds:
                 if ds.lat.values[0] > ds.lat.values[-1]:
                     ds = ds.sortby("lat")
-                ds = self._crop_box(ds, self.era5_box)
+                ds = self._crop_box(ds, self.ds_box)
                 var_name = list(ds.data_vars)[0]
                 datasets.append(ds[var_name].load().isel(time=0))
 
-        return xr.concat(datasets, dim="channel").assign_coords(channel=self.output_channels_list)
+        return xr.concat(datasets, dim="channel").assign_coords(channel=self.input_channels_list)
     def _crop_for_unet(self, arr: np.ndarray, factor: int = 16) -> np.ndarray:
         """
         Crop array so height and width are divisible by `factor` (default 16 for 4 downsampling layers).
@@ -291,17 +317,15 @@ class mswx_dwd(DownscalingDataset):
     def __getitem__(self, idx):
         date = self.times[idx]
 
-        # HR MSWX
+        # MSWX
         ds_mswx = self._get_mswx(date)
         arr_mswx = ds_mswx.values.astype(np.float32)
+        # DWD HYRAS
+        ds_dwd = self._get_dwd(date)
+        arr_dwd = ds_dwd.values.astype(np.float32)
 
-        # HR ERA5 interpolated to MSWX grid
-        ds_era5 = self._get_era5(date).interp(lat=ds_mswx.lat, lon=ds_mswx.lon)
-        arr_era5 = ds_era5["image"].sel(channel=self.input_channels_list).values.astype(np.float32)
-        # import ipdb; ipdb.set_trace()
-        # Crop for UNet compatibility
-        arr_era5 = self._crop_for_unet(arr_era5)
         arr_mswx = self._crop_for_unet(arr_mswx)
+        arr_dwd = self._crop_for_unet(arr_dwd)
         # Add static channels if requested
         static_channels = []
 
@@ -315,11 +339,11 @@ class mswx_dwd(DownscalingDataset):
 
         if static_channels:
             arr_static = np.stack(static_channels, axis=0)
-            arr_era5 = np.concatenate([arr_era5, arr_static], axis=0)
+            arr_mswx = np.concatenate([arr_mswx, arr_static], axis=0)
 
         # Normalize
-        input_arr = self.normalize_input(arr_era5)
-        output_arr = self.normalize_output(arr_mswx)
+        input_arr = self.normalize_input(arr_mswx)
+        output_arr = self.normalize_output(arr_dwd)
         # --- 🔹 Cropping logic ---
         if self.patch_size is not None:
             ph, pw = self.patch_size
@@ -334,9 +358,16 @@ class mswx_dwd(DownscalingDataset):
             else:
                 top = np.random.randint(0, h - ph + 1)
                 left = np.random.randint(0, w - pw + 1)
-
+            import ipdb; ipdb.set_trace()
             input_arr = input_arr[:, top:top + ph, left:left + pw]
             output_arr = output_arr[:, top:top + ph, left:left + pw]
+            # Save lat/lon for this patch (slice the full 2D lat/lon grid)
+            self.last_patch_lat = self.lat[top:top + ph, left:left + pw]
+            self.last_patch_lon = self.lon[top:top + ph, left:left + pw]
+        else:
+            # No patching: last_patch_* point to the full-grid lat/lon
+            self.last_patch_lat = self.lat
+            self.last_patch_lon = self.lon
         # Create LR version
         input_arr = self._create_lowres_(input_arr, factor=4)
         lead_time_label = 0
@@ -381,10 +412,10 @@ class mswx_dwd(DownscalingDataset):
             "target_normalization": (self.output_mean.squeeze(), self.output_std.squeeze()),
         }
     def longitude(self) -> np.ndarray:
-        return self.lon
+        return self.last_patch_lon
 
     def latitude(self) -> np.ndarray:
-        return self.lat
+        return self.last_patch_lat
 
     # ----------------------------------------------------
     # ✅ Downscaling utility (LR creation)

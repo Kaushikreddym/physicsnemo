@@ -246,7 +246,7 @@ class NetCDFWriter:
         # create unlimited dimensions
         f.createDimension("time")
         f.createDimension("ensemble")
-
+        
         if lat.shape != lon.shape:
             raise ValueError("lat and lon must have the same shape")
         ny, nx = lat.shape

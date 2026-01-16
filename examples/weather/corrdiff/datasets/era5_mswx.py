@@ -96,9 +96,18 @@ class era5_mswx(DownscalingDataset):
         normalize: bool = True,
         stats_era5: Optional[str] = None,
         stats_mswx: Optional[str] = None,
+        patch_size: Optional[tuple] = (128,128),
+        center_latlon: Optional[tuple] = None,
     ):
         self.data_path = data_path
         self.normalize = normalize
+        # Patch control
+        self.patch_size = patch_size
+        # Optional center lat/lon for deterministic patching
+        self.center_latlon = center_latlon
+        # Last-used lat/lon for the most recent __getitem__ patch (or full grid)
+        self.last_patch_lat = None
+        self.last_patch_lon = None
 
         # -----------------------------------------
         # ERA5 files
@@ -177,13 +186,13 @@ class era5_mswx(DownscalingDataset):
         # -----------------------------------------
         # Static features: elevation + land–sea mask
         # -----------------------------------------
-        with xr.open_dataset("/data01/FDS/muduchuru/GMTED/GMTED2010_15n015_00625deg.nc") as ds_elev:
+        with xr.open_dataset("/data01/FDS/muduchuru/Land/GMTED/GMTED2010_15n015_00625deg.nc") as ds_elev:
             ds_elev = ds_elev.rename({"latitude": "lat", "longitude": "lon"})
             ds_elev = self._fix_longitude(ds_elev)
             ds_elev = ds_elev.interp(lat=lat_1d, lon=lon_1d)
             self.elev = ds_elev
 
-        with xr.open_dataset("/beegfs/muduchuru/data/imerg/IMERG_land_sea_mask.nc") as ds_lsm:
+        with xr.open_dataset("/data01/FDS/muduchuru/Atmos/IMERG/IMERG_land_sea_mask.nc") as ds_lsm:
             ds_lsm = self._fix_longitude(ds_lsm)
             ds_lsm = ds_lsm.interp(lat=lat_1d, lon=lon_1d)
             self.lsm = ds_lsm
@@ -297,44 +306,54 @@ class era5_mswx(DownscalingDataset):
         arr_mswx = self._crop_for_unet(arr_mswx)
         # Add static channels if requested
         static_channels = []
+        if self.static_channels_list:
+            if "elevation" in self.static_channels_list:
+                static_channels.append(self.elev["elevation"].values.astype(np.float32))
 
-        if "elevation" in self.static_channels_list:
-            static_channels.append(self.elev["elevation"].values.astype(np.float32))
-
-        if "lsm" in self.static_channels_list:
-            # Adjust variable name if different
-            varname = list(self.lsm.data_vars)[0]
-            static_channels.append(self.lsm[varname].values.astype(np.float32))
+            if "lsm" in self.static_channels_list:
+                # Adjust variable name if different
+                varname = list(self.lsm.data_vars)[0]
+                static_channels.append(self.lsm[varname].values.astype(np.float32))
 
         if static_channels:
             arr_static = np.stack(static_channels, axis=0)
+            # Crop static channels same as input (ensure CHW)
+            # arr_static is [C_static, H, W]
+            arr_static = self._crop_for_unet(arr_static)
             arr_era5 = np.concatenate([arr_era5, arr_static], axis=0)
 
         # Normalize
         input_arr = self.normalize_input(arr_era5)
         output_arr = self.normalize_output(arr_mswx)
         # # --- 🔹 Cropping logic ---
-        # if self.patch_size is not None:
-        #     ph, pw = self.patch_size
-        #     h, w = input_arr.shape[-2: ]
+        if self.patch_size is not None:
+            ph, pw = self.patch_size
+            h, w = input_arr.shape[-2: ]
 
-        #     if ph > h or pw > w:
-        #         raise ValueError(f"Patch size {self.patch_size} larger than image {h, w}")
+            if ph > h or pw > w:
+                raise ValueError(f"Patch size {self.patch_size} larger than image {h, w}")
 
-        #     if self.center_latlon is not None:
-        #         lat0, lon0 = self.center_latlon
-        #         top, left = self._get_center_indices(ds_mswx.lat.values, ds_mswx.lon.values, lat0, lon0, ph, pw)
-        #     else:
-        #         top = np.random.randint(0, h - ph + 1)
-        #         left = np.random.randint(0, w - pw + 1)
+            if self.center_latlon is not None:
+                lat0, lon0 = self.center_latlon
+                top, left = self._get_center_indices(ds_mswx.lat.values, ds_mswx.lon.values, lat0, lon0, ph, pw)
+            else:
+                top = np.random.randint(0, h - ph + 1)
+                left = np.random.randint(0, w - pw + 1)
 
-        #     input_arr = input_arr[:, top:top + ph, left:left + pw]
-        #     output_arr = output_arr[:, top:top + ph, left:left + pw]
+            input_arr = input_arr[:, top:top + ph, left:left + pw]
+            output_arr = output_arr[:, top:top + ph, left:left + pw]
+            # Save lat/lon for this patch (slice the full 2D lat/lon grid)
+            self.last_patch_lat = self.lat[top:top + ph, left:left + pw]
+            self.last_patch_lon = self.lon[top:top + ph, left:left + pw]
+        else:
+            # No patching: last_patch_* point to the full-grid lat/lon
+            self.last_patch_lat = self.lat
+            self.last_patch_lon = self.lon
         # Create LR version
         input_arr = self._create_lowres_(input_arr, factor=4)
         lead_time_label = 0
 
-        return output_arr, input_arr, lead_time_label
+        return output_arr, input_arr
 
     # ----------------------------------------------------
     # ✅ Normalization
@@ -366,7 +385,7 @@ class era5_mswx(DownscalingDataset):
 
     def image_shape(self):
         """Return full image shape (H, W)."""
-        return self.lat.shape
+        return self.patch_size
 
     def info(self):
         return {
@@ -374,18 +393,21 @@ class era5_mswx(DownscalingDataset):
             "target_normalization": (self.output_mean.squeeze(), self.output_std.squeeze()),
         }
     def longitude(self) -> np.ndarray:
-        return self.lon
+        return self.last_patch_lon
 
     def latitude(self) -> np.ndarray:
-        return self.lat
+        return self.last_patch_lat
 
     # ----------------------------------------------------
     # ✅ Downscaling utility (LR creation)
     # ----------------------------------------------------
     @staticmethod
     def _create_lowres_(x, factor=4):
+        """Create low-resolution version by downsampling and upsampling, matching input shape exactly."""
+        c, h, w = x.shape
         x = x.transpose(1, 2, 0)  # CHW → HWC
         x = x[::factor, ::factor, :]
-        x = cv2.resize(x, (x.shape[1] * factor, x.shape[0] * factor), interpolation=cv2.INTER_CUBIC)
+        # Upsample back to original size, ensuring exact shape match
+        x = cv2.resize(x, (w, h), interpolation=cv2.INTER_CUBIC)
         x = x.transpose(2, 0, 1)  # HWC → CHW
         return x
