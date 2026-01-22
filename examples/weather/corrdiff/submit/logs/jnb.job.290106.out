@@ -1,0 +1,41 @@
+Running on node: gpu003
+Thu Jan 22 10:39:42 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 570.124.06             Driver Version: 570.124.06     CUDA Version: 12.8     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-SXM2-16GB           Off |   00000000:62:00.0 Off |                    0 |
+| N/A   36C    P0             40W /  300W |       1MiB /  16384MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  Tesla V100-SXM2-16GB           Off |   00000000:89:00.0 Off |                    0 |
+| N/A   36C    P0             40W /  300W |       1MiB /  16384MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+[2026-01-22 10:40:00,108][main][INFO] - Using dataset: mswxdwd
+[2026-01-22 10:40:00,109][main][INFO] - Saving the outputs in /beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff
+[2026-01-22 10:40:00,110][checkpoint][WARNING] - Provided checkpoint directory ./checkpoints_diffusion does not exist, skipping load
+[2026-01-22 10:40:00,111][main][INFO] - Saving the outputs in /beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff
+[2026-01-22 10:40:00,114][checkpoint][WARNING] - Provided checkpoint directory ./checkpoints_diffusion does not exist, skipping load
+[2026-01-22 10:40:29,051][main][INFO] - Patch-based training disabled
+[2026-01-22 10:40:31,397][checkpoint][WARNING] - Provided checkpoint directory ./checkpoints_diffusion does not exist, skipping load
+[2026-01-22 10:40:31,415][checkpoint][WARNING] - Provided checkpoint directory ./checkpoints_diffusion does not exist, skipping load
+[2026-01-22 10:40:33,611][main][INFO] - Loaded the pre-trained regression model
+[2026-01-22 10:40:33,612][main][INFO] - Using 1 gradient accumulation rounds
+[2026-01-22 10:40:33,613][main][INFO] - Training a non-patched model: patch gradient accumulation automatically disabled.
+[2026-01-22 10:40:33,746][checkpoint][WARNING] - Provided checkpoint directory ./checkpoints_diffusion does not exist, skipping load
+[2026-01-22 10:40:33,746][checkpoint][WARNING] - Provided checkpoint directory ./checkpoints_diffusion does not exist, skipping load
+[2026-01-22 10:40:33,747][main][INFO] - Training for 200000000 images...
+[2026-01-22 10:42:54,806][main][INFO] - Starting Profiler at 384
+[2026-01-22 10:43:08,209][main][INFO] - Stopping Profiler at 400

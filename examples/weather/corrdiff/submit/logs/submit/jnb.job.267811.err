@@ -1,0 +1,183 @@
+W0119 11:01:33.138000 3612893 site-packages/torch/distributed/run.py:803] 
+W0119 11:01:33.138000 3612893 site-packages/torch/distributed/run.py:803] *****************************************
+W0119 11:01:33.138000 3612893 site-packages/torch/distributed/run.py:803] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0119 11:01:33.138000 3612893 site-packages/torch/distributed/run.py:803] *****************************************
+/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/train.py:44: ExperimentalFeatureWarning: You are importing from 'physicsnemo.experimental'. The APIs in this namespace are experimental, under active development, and may change without notice. Expect possible back-compatibility breaking changes and only partial test coverage.
+  from physicsnemo.experimental.metrics.diffusion import tEDMResidualLoss
+/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/train.py:44: ExperimentalFeatureWarning: You are importing from 'physicsnemo.experimental'. The APIs in this namespace are experimental, under active development, and may change without notice. Expect possible back-compatibility breaking changes and only partial test coverage.
+  from physicsnemo.experimental.metrics.diffusion import tEDMResidualLoss
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config_training_mswxdwd_regression.yaml': Defaults list is missing `_self_`. See https://hydra.cc/docs/1.2/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config_training_mswxdwd_regression.yaml': Defaults list is missing `_self_`. See https://hydra.cc/docs/1.2/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+wandb: Tracking run with wandb version 0.19.10
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Tracking run with wandb version 0.19.10
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/backends/__init__.py:46: UserWarning: Please use the new API settings to control TF32 behavior, such as torch.backends.cudnn.conv.fp32_precision = 'tf32' or torch.backends.cuda.matmul.fp32_precision = 'ieee'. Old settings, e.g, torch.backends.cuda.matmul.allow_tf32 = True, torch.backends.cudnn.allow_tf32 = True, allowTF32CuDNN() and allowTF32CuBLAS() will be deprecated after Pytorch 2.9. Please see https://pytorch.org/docs/main/notes/cuda.html#tensorfloat-32-tf32-on-ampere-and-later-devices (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:80.)
+  self.setter(val)
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/backends/__init__.py:46: UserWarning: Please use the new API settings to control TF32 behavior, such as torch.backends.cudnn.conv.fp32_precision = 'tf32' or torch.backends.cuda.matmul.fp32_precision = 'ieee'. Old settings, e.g, torch.backends.cuda.matmul.allow_tf32 = True, torch.backends.cudnn.allow_tf32 = True, allowTF32CuDNN() and allowTF32CuBLAS() will be deprecated after Pytorch 2.9. Please see https://pytorch.org/docs/main/notes/cuda.html#tensorfloat-32-tf32-on-ampere-and-later-devices (Triggered internally at /pytorch/aten/src/ATen/Context.cpp:80.)
+  self.setter(val)
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xesmf/smm.py:131: UserWarning: Input array is not C_CONTIGUOUS. Will affect performance.
+  warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xesmf/smm.py:131: UserWarning: Input array is not C_CONTIGUOUS. Will affect performance.
+  warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xesmf/smm.py:131: UserWarning: Input array is not C_CONTIGUOUS. Will affect performance.
+  warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xesmf/smm.py:131: UserWarning: Input array is not C_CONTIGUOUS. Will affect performance.
+  warnings.warn('Input array is not C_CONTIGUOUS. ' 'Will affect performance.')
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/nn/parallel/distributed.py:2372: UserWarning: You passed find_unused_parameters=true to DistributedDataParallel, `_set_static_graph` will detect unused parameters automatically, so you do not need to set find_unused_parameters=true, just be sure these unused parameters will not change during training loop while calling `_set_static_graph`.
+  warnings.warn(
+/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/nn/parallel/distributed.py:2372: UserWarning: You passed find_unused_parameters=true to DistributedDataParallel, `_set_static_graph` will detect unused parameters automatically, so you do not need to set find_unused_parameters=true, just be sure these unused parameters will not change during training loop while calling `_set_static_graph`.
+  warnings.warn(
+/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/train.py:612: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)
+  loss_sum = torch.tensor([loss_accum], device=dist.device)
+/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/train.py:612: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)
+  loss_sum = torch.tensor([loss_accum], device=dist.device)
+Error executing job with overrides: ['++training.hp.total_batch_size=16']
+Traceback (most recent call last):
+  File "/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/train.py", line 544, in main
+    img_clean, img_lr, *lead_time_label = next(
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 732, in __next__
+    data = self._next_data()
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1506, in _next_data
+    return self._process_data(data, worker_id)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1541, in _process_data
+    data.reraise()
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/_utils.py", line 769, in reraise
+    raise exception
+FileNotFoundError: Caught FileNotFoundError in DataLoader worker process 3.
+Original Traceback (most recent call last):
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/file_manager.py", line 211, in _acquire_with_cache_info
+    file = self._cache[self._key]
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/lru_cache.py", line 56, in __getitem__
+    value = self._cache[key]
+KeyError: [<class 'netCDF4._netCDF4.Dataset'>, ('/beegfs/muduchuru/data/hyras_daily/pr/pr_hyras_1_2003-09-11_v6-0_de.nc',), 'r', (('clobber', True), ('diskless', False), ('format', 'NETCDF4'), ('persist', False)), '7c6ecfd5-9e23-448c-8bc1-31ed5f3f5f24']
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/_utils/worker.py", line 349, in _worker_loop
+    data = fetcher.fetch(index)  # type: ignore[possibly-undefined]
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/datasets/mswxdwd.py", line 265, in __getitem__
+    arr_dwd = self._get_dwd(date)
+  File "/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/datasets/mswxdwd.py", line 254, in _get_dwd
+    with xr.open_dataset(file_match) as ds:
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/api.py", line 686, in open_dataset
+    backend_ds = backend.open_dataset(
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 666, in open_dataset
+    store = NetCDF4DataStore.open(
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 452, in open
+    return cls(manager, group=group, mode=mode, lock=lock, autoclose=autoclose)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 393, in __init__
+    self.format = self.ds.data_model
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 461, in ds
+    return self._acquire()
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 455, in _acquire
+    with self._manager.acquire_context(needs_lock) as root:
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/contextlib.py", line 135, in __enter__
+    return next(self.gen)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/file_manager.py", line 199, in acquire_context
+    file, cached = self._acquire_with_cache_info(needs_lock)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/file_manager.py", line 217, in _acquire_with_cache_info
+    file = self._opener(*self._args, **kwargs)
+  File "src/netCDF4/_netCDF4.pyx", line 2521, in netCDF4._netCDF4.Dataset.__init__
+  File "src/netCDF4/_netCDF4.pyx", line 2158, in netCDF4._netCDF4._ensure_nc_success
+FileNotFoundError: [Errno 2] No such file or directory: '/beegfs/muduchuru/data/hyras_daily/pr/pr_hyras_1_2003-09-11_v6-0_de.nc'
+
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
+Error executing job with overrides: ['++training.hp.total_batch_size=16']
+Traceback (most recent call last):
+  File "/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/train.py", line 544, in main
+    img_clean, img_lr, *lead_time_label = next(
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 732, in __next__
+    data = self._next_data()
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1506, in _next_data
+    return self._process_data(data, worker_id)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1541, in _process_data
+    data.reraise()
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/_utils.py", line 769, in reraise
+    raise exception
+FileNotFoundError: Caught FileNotFoundError in DataLoader worker process 3.
+Original Traceback (most recent call last):
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/file_manager.py", line 211, in _acquire_with_cache_info
+    file = self._cache[self._key]
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/lru_cache.py", line 56, in __getitem__
+    value = self._cache[key]
+KeyError: [<class 'netCDF4._netCDF4.Dataset'>, ('/beegfs/muduchuru/data/hyras_daily/pr/pr_hyras_1_2011-04-24_v6-0_de.nc',), 'r', (('clobber', True), ('diskless', False), ('format', 'NETCDF4'), ('persist', False)), '58d7665d-0fc0-4790-8348-b1908dc47c04']
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/_utils/worker.py", line 349, in _worker_loop
+    data = fetcher.fetch(index)  # type: ignore[possibly-undefined]
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/datasets/mswxdwd.py", line 265, in __getitem__
+    arr_dwd = self._get_dwd(date)
+  File "/beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/datasets/mswxdwd.py", line 254, in _get_dwd
+    with xr.open_dataset(file_match) as ds:
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/api.py", line 686, in open_dataset
+    backend_ds = backend.open_dataset(
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 666, in open_dataset
+    store = NetCDF4DataStore.open(
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 452, in open
+    return cls(manager, group=group, mode=mode, lock=lock, autoclose=autoclose)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 393, in __init__
+    self.format = self.ds.data_model
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 461, in ds
+    return self._acquire()
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/netCDF4_.py", line 455, in _acquire
+    with self._manager.acquire_context(needs_lock) as root:
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/contextlib.py", line 135, in __enter__
+    return next(self.gen)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/file_manager.py", line 199, in acquire_context
+    file, cached = self._acquire_with_cache_info(needs_lock)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/xarray/backends/file_manager.py", line 217, in _acquire_with_cache_info
+    file = self._opener(*self._args, **kwargs)
+  File "src/netCDF4/_netCDF4.pyx", line 2521, in netCDF4._netCDF4.Dataset.__init__
+  File "src/netCDF4/_netCDF4.pyx", line 2158, in netCDF4._netCDF4._ensure_nc_success
+FileNotFoundError: [Errno 2] No such file or directory: '/beegfs/muduchuru/data/hyras_daily/pr/pr_hyras_1_2011-04-24_v6-0_de.nc'
+
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
+W0119 16:38:34.959000 3612893 site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 3612973 closing signal SIGTERM
+E0119 16:38:35.024000 3612893 site-packages/torch/distributed/elastic/multiprocessing/api.py:882] failed (exitcode: 1) local_rank: 0 (pid: 3612972) of binary: /home/muduchuru/miniforge3/envs/diffusion/bin/python3.10
+Traceback (most recent call last):
+  File "/home/muduchuru/miniforge3/envs/diffusion/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/distributed/run.py", line 936, in main
+    run(args)
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/distributed/run.py", line 927, in run
+    elastic_launch(
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 156, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/home/muduchuru/miniforge3/envs/diffusion/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 293, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+train.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-01-19_16:38:34
+  host      : gpu003.service
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 3612972)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

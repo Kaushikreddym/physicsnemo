@@ -1,0 +1,45 @@
+hydra:
+    job:
+          chdir: false
+          name: mswxdwd_diffusion
+    run:
+          dir: ./output/${hydra:job.name}
+    searchpath:
+          - pkg://conf/base # Do not modify
+
+# Base parameters for dataset, model, training, and validation
+defaults:
+
+    - dataset: mswxdwd
+    - model: diffusion
+    - model_size: normal
+    - training: ${model}
+
+# Dataset parameters
+dataset:
+    data_path: /beegfs/muduchuru/data/
+    stats_dwd: /beegfs/muduchuru/data/hyras_daily/hyras_stats.json
+    stats_mswx: /beegfs/muduchuru/data/mswx/mswx_stats.json
+
+validation:
+    data_path: /beegfs/muduchuru/data/
+    stats_dwd: /beegfs/muduchuru/data/hyras_daily/hyras_stats.json
+    stats_mswx: /beegfs/muduchuru/data/mswx/mswx_stats.json
+    val_years: [2021, 2024]  # or your desired validation years
+
+# Training parameters
+training:
+    hp:
+        duration: 10000000
+        patch_shape_x: 128
+        patch_shape_y: 128
+        patch_num: 1
+    io:
+        regression_checkpoint_path: <path/to/checkpoint.mdlus>
+        # Path to load the regression checkpoint
+
+# Parameters for wandb logging
+wandb:
+    mode: offline
+    results_dir: "./wandb"
+    watch_model: false
