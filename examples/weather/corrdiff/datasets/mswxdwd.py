@@ -51,6 +51,37 @@ def add_corners_regular(ds):
     
     return ds.assign_coords(lat_b=lat_b, lon_b=lon_b)
 class mswxdwd(DownscalingDataset):
+    def _find_valid_spatial_bounds(self, data_2d: np.ndarray) -> Tuple[slice, slice]:
+        """
+        Find rows and columns that contain at least one non-NaN value.
+        
+        Parameters
+        ----------
+        data_2d : np.ndarray (H, W)
+            2D array with NaN values to be removed
+            
+        Returns
+        -------
+        row_slice, col_slice : tuple of slices
+            Slices that exclude fully-NaN rows and columns
+        """
+        # Find rows with at least one valid (non-NaN) value
+        valid_rows = ~np.all(np.isnan(data_2d), axis=1)
+        valid_cols = ~np.all(np.isnan(data_2d), axis=0)
+        
+        # Get the indices
+        row_indices = np.where(valid_rows)[0]
+        col_indices = np.where(valid_cols)[0]
+        
+        if len(row_indices) == 0 or len(col_indices) == 0:
+            raise ValueError("All data is NaN - cannot find valid spatial bounds")
+        
+        # Create slices from min to max valid indices
+        row_slice = slice(row_indices[0], row_indices[-1] + 1)
+        col_slice = slice(col_indices[0], col_indices[-1] + 1)
+        
+        return row_slice, col_slice
+    
     def __init__(
         self,
         data_path: str,
@@ -92,18 +123,20 @@ class mswxdwd(DownscalingDataset):
         # 3. Setup Grid & Regridder
         # Load DWD Template (Target Curvilinear Grid)
         with xr.open_dataset(self.dwd_files[output_channels[0]][0]) as ds_target:
-            # Crop to factor 16
-            # h, w = ds_target.lat.shape
-            # new_h, new_w = (h // 16) * 16, (w // 16) * 16
-            # self.ds_target = ds_target.isel(y=slice(0, new_h), x=slice(0, new_w))
-            
-            # Add corners for conservative regridding
             var_name = output_channels[0]
-            self.data_mask = np.where(np.isnan(ds_target[var_name].values), 0.0, 1.0).astype(np.float32)
-            self.ds_target = add_corners_curvilinear(ds_target)
-            # self.ds_target = xe_util.grid_2d(ds_target.lon, ds_target.lat)
-            self.lat = ds_target.lat.values
-            self.lon = ds_target.lon.values
+            data_2d = ds_target[var_name].values
+            
+            # Find valid spatial bounds (remove fully-NaN rows/columns)
+            self.row_slice, self.col_slice = self._find_valid_spatial_bounds(data_2d)
+            
+            # Crop to valid bounds
+            ds_target_cropped = ds_target.isel(y=self.row_slice, x=self.col_slice)
+            
+            # Create mask and get lat/lon from cropped data
+            self.data_mask = np.where(np.isnan(ds_target_cropped[var_name].values), 0.0, 1.0).astype(np.float32)
+            self.ds_target = add_corners_curvilinear(ds_target_cropped)
+            self.lat = ds_target_cropped.lat.values
+            self.lon = ds_target_cropped.lon.values
 
         # 2. Prepare MSWX (Source) with corners
         with xr.open_dataset(self.mswx_files[input_channels[0]][0]) as ds_src:
@@ -113,7 +146,7 @@ class mswxdwd(DownscalingDataset):
             ds_src_cropped = self._crop_box(ds_src, self.ds_box)
             # ds_src_cropped = add_corners_regular(ds_src_cropped)
             
-            weights_file = "mswx_to_dwd_bilinear.nc"
+            weights_file = "mswx_to_dwd_bilinear_cropped.nc"
             reuse = Path(weights_file).exists()
 
             # 3. Initialize Conservative Normed Regridder
@@ -170,7 +203,24 @@ class mswxdwd(DownscalingDataset):
         lat_min, lat_max = float(np.min(ds.lat)), float(np.max(ds.lat))
         lon_min, lon_max = float(np.min(ds.lon)), float(np.max(ds.lon))
         self.ds_box = (lat_min, lat_max, lon_min, lon_max)
-        return self.ds_box    
+        return self.ds_box
+    
+    def _create_cdo_grid_file(self, filename: str, lat: np.ndarray, lon: np.ndarray):
+        """Create a CDO-compatible curvilinear grid description file."""
+        ny, nx = lat.shape
+        
+        with open(filename, 'w') as f:
+            f.write("gridtype = curvilinear\n")
+            f.write(f"gridsize = {ny * nx}\n")
+            f.write(f"xsize = {nx}\n")
+            f.write(f"ysize = {ny}\n")
+            f.write("xvals = ")
+            f.write(" ".join(f"{lon.flatten()[i]:.6f}" for i in range(lon.size)))
+            f.write("\n")
+            f.write("yvals = ")
+            f.write(" ".join(f"{lat.flatten()[i]:.6f}" for i in range(lat.size)))
+            f.write("\n")
+    
     def _positional_embedding(self, lat2d: np.ndarray, lon2d: np.ndarray) -> np.ndarray:
         """
         Generate 2-channel normalized positional embeddings from 2D lat/lon arrays.
@@ -201,22 +251,37 @@ class mswxdwd(DownscalingDataset):
         ds_tgt = xr.Dataset({"lat": (["y", "x"], self.lat), "lon": (["y", "x"], self.lon)})
 
         if "elevation" in self.static_channels_list:
-            with xr.open_dataset("/data01/FDS/muduchuru/Land/GMTED/GMTED2010_15n015_00625deg.nc") as ds:
-                ds = ds.rename({"latitude": "lat", "longitude": "lon"})
-                ds = self._fix_longitude(ds)
+            # Use pre-regridded file or create it with CDO (much faster than xESMF)
+            regridded_elev_file = "gmted_dwd_cropped_bilinear.nc"
+            
+            if not Path(regridded_elev_file).exists():
+                print(f"Creating regridded elevation file using CDO: {regridded_elev_file}")
+                # Create a temporary target grid file for CDO
+                temp_grid = "temp_dwd_grid.txt"
+                self._create_cdo_grid_file(temp_grid, self.lat, self.lon)
                 
-                weights_file = "gmted_to_dwd.nc"
-                reuse = Path(weights_file).exists()
-                regridder = xe.Regridder(ds, ds_tgt, method="bilinear", reuse_weights=reuse, filename=weights_file)
-                self.elev = regridder(ds)
-                elev = self.elev['elevation'].values.astype(np.float32)
+                # Use CDO to regrid (much faster and less memory than xESMF)
+                import subprocess
+                # CDO is in the cdo_stable conda environment
+                cmd = f"bash -c 'source ~/.bashrc && conda activate cdo_stable && cdo remapbil,{temp_grid} /data01/FDS/muduchuru/Land/GMTED/GMTED2010_maximum_15arcsec.nc4 {regridded_elev_file}'"
+                subprocess.run(cmd, shell=True, check=True)
+                
+                # Clean up temp grid file
+                if Path(temp_grid).exists():
+                    Path(temp_grid).unlink()
+                print(f"Regridded elevation file created: {regridded_elev_file}")
+            
+            # Load the regridded file
+            with xr.open_dataset(regridded_elev_file) as ds:
+                self.elev = ds
+                elev = ds['surface_altitude_maximum'].values.astype(np.float32)
                 static_layers.append(elev)
 
         if "lsm" in self.static_channels_list:
             with xr.open_dataset("/data01/FDS/muduchuru/Atmos/IMERG/IMERG_land_sea_mask.nc") as ds:
                 ds = self._fix_longitude(ds)
                 
-                weights_file = "imerg_to_dwd.nc"
+                weights_file = "imerg_to_dwd_cropped.nc"
                 reuse = Path(weights_file).exists()
                 regridder = xe.Regridder(ds, ds_tgt, method="nearest_s2d", reuse_weights=reuse, filename=weights_file, ignore_degenerate=True, unmapped_to_nan=True)
                 self.lsm = regridder(ds)
@@ -252,8 +317,9 @@ class mswxdwd(DownscalingDataset):
         for ch in self.output_channels_list:
             file_match = next(f for f in self.dwd_files[ch] if tstr in f)
             with xr.open_dataset(file_match) as ds:
-                # Ensure it matches the cropped template size
-                val = ds[ch].values
+                # Apply the same spatial cropping as the template
+                ds_cropped = ds.isel(y=self.row_slice, x=self.col_slice)
+                val = ds_cropped[ch].values
                 arrs.append(val)
         return np.stack(arrs).astype(np.float32)
 
@@ -293,7 +359,7 @@ class mswxdwd(DownscalingDataset):
 
             if self.center_latlon is not None:
                 lat0, lon0 = self.center_latlon
-                top, left = self._get_center_indices(self.lat.values, self.lon.values, lat0, lon0, ph, pw)
+                top, left = self._get_center_indices(self.lat, self.lon, lat0, lon0, ph, pw)
             else:
                 top = np.random.randint(0, h - ph + 1)
                 left = np.random.randint(0, w - pw + 1)
@@ -350,22 +416,26 @@ class mswxdwd(DownscalingDataset):
 
         # -----------------------------------------
         # Load normalization statistics
+        # Model INPUT = MSWX low-res + static channels
+        # Model OUTPUT/TARGET = DWD high-res
         # -----------------------------------------
-        if stats_dwd is not None and os.path.exists(stats_dwd):
-            with open(stats_dwd, "r") as f:
+        
+        # Load MSWX stats for model input (low-res)
+        if stats_mswx is not None and os.path.exists(stats_mswx):
+            with open(stats_mswx, "r") as f:
                 stats = json.load(f)
-            input_mean_list = [stats[ch]["mean"] for ch in output_channels]
-            input_std_list = [stats[ch]["std"] for ch in output_channels]
+            input_mean_list = [stats[ch]["mean"] for ch in input_channels]
+            input_std_list = [stats[ch]["std"] for ch in input_channels]
         else:
-            input_mean_list = [0.0] * len(output_channels)
-            input_std_list = [1.0] * len(output_channels)
+            input_mean_list = [0.0] * len(input_channels)
+            input_std_list = [1.0] * len(input_channels)
 
-        # Add mean/std for static channels if present
+        # Add mean/std for static channels (part of model input)
         if self.static_channels_list is not None:
             for ch in self.static_channels_list:
                 if ch == "elevation":
-                    input_mean_list.append(self.elev["elevation"].values.mean())
-                    input_std_list.append(self.elev["elevation"].values.std())
+                    input_mean_list.append(self.elev["surface_altitude_maximum"].values.mean())
+                    input_std_list.append(self.elev["surface_altitude_maximum"].values.std())
                 elif ch == "lsm":
                     varname = "landseamask"
                     input_mean_list.append(self.lsm[varname].values.mean())
@@ -381,14 +451,15 @@ class mswxdwd(DownscalingDataset):
         self.input_mean = np.array(input_mean_list)[:, None, None]
         self.input_std = np.array(input_std_list)[:, None, None]
 
-        if stats_mswx is not None and os.path.exists(stats_mswx):
-            with open(stats_mswx, "r") as f:
+        # Load DWD stats for model output/target (high-res)
+        if stats_dwd is not None and os.path.exists(stats_dwd):
+            with open(stats_dwd, "r") as f:
                 stats = json.load(f)
-            self.output_mean = np.array([stats[ch]["mean"] for ch in input_channels])[:, None, None]
-            self.output_std = np.array([stats[ch]["std"] for ch in input_channels])[:, None, None]
+            self.output_mean = np.array([stats[ch]["mean"] for ch in output_channels])[:, None, None]
+            self.output_std = np.array([stats[ch]["std"] for ch in output_channels])[:, None, None]
         else:
-            self.output_mean = 0.0
-            self.output_std = 1.0
+            self.output_mean = np.array([0.0] * len(output_channels))[:, None, None]
+            self.output_std = np.array([1.0] * len(output_channels))[:, None, None]
     # ----------------------------------------------------
     # ✅ Data Access
     # ----------------------------------------------------
@@ -406,6 +477,16 @@ class mswxdwd(DownscalingDataset):
     def normalize_output(self, x):
         if self.normalize:
             return (x - self.output_mean) / self.output_std
+        return x
+
+    def denormalize_input(self, x):
+        if self.normalize:
+            return x * self.input_std + self.input_mean
+        return x
+
+    def denormalize_output(self, x):
+        if self.normalize:
+            return x * self.output_std + self.output_mean
         return x
 
     # ----------------------------------------------------

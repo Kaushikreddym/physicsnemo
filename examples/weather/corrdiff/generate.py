@@ -284,7 +284,7 @@ def main(cfg: DictConfig) -> None:
     P_std = getattr(cfg.generation, "P_std", None)
 
     # Main generation definition
-    def generate_fn():
+    def generate_fn(timestep_rank_batches):
         with nvtx.annotate("generate_fn", color="green"):
             diffusion_step_kwargs = {}
             if distribution is not None:
@@ -305,7 +305,7 @@ def main(cfg: DictConfig) -> None:
                         net=net_reg,
                         img_lr=img_lr,
                         latents_shape=(
-                            sum(map(len, rank_batches)),
+                            sum(map(len, timestep_rank_batches)),
                             img_out_channels,
                             img_shape[0],
                             img_shape[1],
@@ -323,7 +323,7 @@ def main(cfg: DictConfig) -> None:
                         sampler_fn=sampler_fn,
                         img_shape=img_shape,
                         img_out_channels=img_out_channels,
-                        rank_batches=rank_batches,
+                        rank_batches=timestep_rank_batches,
                         img_lr=img_lr.expand(
                             cfg.generation.seed_batch_size, -1, -1, -1
                         ).to(memory_format=torch.channels_last),
@@ -442,6 +442,13 @@ def main(cfg: DictConfig) -> None:
                 time_index += 1
                 if dist.rank == 0:
                     logger0.info(f"starting index: {time_index}")
+                
+                # Make seeds timestep-dependent for consistency across spatial patches
+                # This ensures each (ensemble_member, timestep) combination gets a unique but deterministic seed
+                timestep_rank_batches = [
+                    [seed + time_index * cfg.generation.num_ensembles for seed in batch]
+                    for batch in rank_batches
+                ]
 
                 if time_index == warmup_steps:
                     start.record()
@@ -457,7 +464,7 @@ def main(cfg: DictConfig) -> None:
                     .to(memory_format=torch.channels_last)
                 )
                 image_tar = image_tar.to(device=device).to(torch.float32)
-                image_out = generate_fn()
+                image_out = generate_fn(timestep_rank_batches)
                 if dist.rank == 0:
                     batch_size = image_out.shape[0]
                     if cfg.generation.perf.io_synchronous:

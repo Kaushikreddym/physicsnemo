@@ -5,7 +5,7 @@ data_path: ???
 stats_era5: ???
 stats_mswx: ???
 # Names of output channels.
-output_channels: ["tas", "pr"]
-input_channels: ['vo850', 'vo700', 'vo500', 'vo200', 't850', 't700', 't500', 't200', 'r850', 'r700', 'r500', 'r200', 'q850', 'q700', 'q500', 'q200', 'tas', 'pr']
+output_channels: ["tas", "pr","tasmax","tasmin"]
+input_channels: ['vo850', 'vo700', 'vo500', 'vo200', 't850', 't700', 't500', 't200', 'r850', 'r700', 'r500', 'r200', 'q850', 'q700', 'q500', 'q200', 'tas', 'pr', 'tasmax', 'tasmin']
 static_channels: ["elevation","lsm"]
 normalize: True

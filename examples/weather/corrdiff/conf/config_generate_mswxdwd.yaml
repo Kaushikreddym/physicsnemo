@@ -1,0 +1,53 @@
+
+hydra:
+    job:
+          chdir: false
+          name: generate_mswxdwd
+    run:
+          dir: ./outputs/${hydra:job.name}
+    searchpath:
+          - pkg://conf/base # Do not modify
+
+# Base parameters for dataset, model, and generation
+defaults:
+
+    - dataset: mswxdwd
+    # The dataset type for generation.
+
+    - generation: patched
+    # The base generation parameters.
+    # Accepted values:
+    #     `patched`: base parameters for a patch-based model (for full domain generation)
+    #     `non_patched`: base parameters for a non-patched model
+
+
+# Dataset parameters. Used for `mswxdwd` dataset type.
+# Modify or add below parameters that should be passed as argument to the
+# user-defined dataset class.
+dataset:
+    data_path: /beegfs/muduchuru/data/
+    stats_dwd: /beegfs/muduchuru/data/hyras_daily/hyras_stats.json
+    stats_mswx: /beegfs/muduchuru/data/mswx/mswx_stats.json
+    center_latlon: null  # Set to null for full domain generation
+    train: False
+
+# Generation parameters to specialize
+generation:
+    #inference_mode: regression
+    num_ensembles: 8
+    # int, number of ensembles to generate per input
+    seed_batch_size: 1
+    # int, size of the batched inference
+    patch_shape_x: 256
+    patch_shape_y: 256
+    # int, patch size. Used for tiling to generate over entire domain
+    # Adjust based on GPU memory - larger patches = faster but more memory
+    times_range: [2024-01-01T00:00:00, 2024-12-31T00:00:00, 1d]
+    times: null
+    # times: ['2024-01-01T00:00:00']
+    # list of times to evaluate on. Only one of times_range and times should be used.
+
+    io:
+        output_path: ./generated
+        res_ckpt_filename: checkpoints_diffusion/EDMPrecondSR.0.8000000.mdlus
+        reg_ckpt_filename: checkpoints_regression/UNet.0.565008.mdlus

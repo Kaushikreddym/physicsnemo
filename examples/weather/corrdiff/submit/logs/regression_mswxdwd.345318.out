@@ -1,0 +1,50 @@
+Running on node: gpu001
+Fri Jan 30 14:05:11 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 570.124.06             Driver Version: 570.124.06     CUDA Version: 12.8     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-SXM2-16GB           On  |   00000000:62:00.0 Off |                    0 |
+| N/A   40C    P0             41W /  300W |       1MiB /  16384MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  Tesla V100-SXM2-16GB           On  |   00000000:89:00.0 Off |                    0 |
+| N/A   42C    P0             43W /  300W |       1MiB /  16384MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+[2026-01-30 14:05:27,322][main][INFO] - Saving the outputs in /beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff
+[2026-01-30 14:05:27,323][checkpoint][WARNING] - Provided checkpoint directory checkpoints_regression_mswxdwd/checkpoints_regression does not exist, skipping load
+[2026-01-30 14:05:27,324][main][INFO] - Using dataset: mswxdwd
+[2026-01-30 14:05:27,324][main][INFO] - Saving the outputs in /beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff
+[2026-01-30 14:05:27,325][checkpoint][WARNING] - Provided checkpoint directory checkpoints_regression_mswxdwd/checkpoints_regression does not exist, skipping load
+[2026-01-30 14:05:40,518][main][INFO] - Patch-based training disabled
+[2026-01-30 14:05:42,028][checkpoint][WARNING] - Provided checkpoint directory checkpoints_regression_mswxdwd/checkpoints_regression does not exist, skipping load
+[2026-01-30 14:05:42,030][checkpoint][WARNING] - Provided checkpoint directory checkpoints_regression_mswxdwd/checkpoints_regression does not exist, skipping load
+[2026-01-30 14:05:42,031][main][INFO] - Using 1 gradient accumulation rounds
+[2026-01-30 14:05:42,032][main][INFO] - Training a non-patched model: patch gradient accumulation automatically disabled.
+[2026-01-30 14:05:42,041][checkpoint][WARNING] - Provided checkpoint directory checkpoints_regression_mswxdwd/checkpoints_regression does not exist, skipping load
+[2026-01-30 14:05:42,041][checkpoint][WARNING] - Provided checkpoint directory checkpoints_regression_mswxdwd/checkpoints_regression does not exist, skipping load
+[2026-01-30 14:05:42,041][main][INFO] - Training for 1000000 images...
+[2026-01-30 14:07:43,563][main][INFO] - Starting Profiler at 384
+[2026-01-30 14:07:54,236][main][INFO] - Stopping Profiler at 400
+[2026-01-30 14:11:11,373][main][INFO] - samples 1008.0    training_loss 10437.94 training_loss_running_mean 13243.74 learning_rate 0.00020000 total_sec 329.3   sec_per_tick 25.5    sec_per_sample 1.60    cpu_mem_gb 2.28   peak_gpu_mem_gb 9.98   peak_gpu_mem_reserved_gb 10.32 
+[2026-01-30 14:16:10,478][main][INFO] - samples 2000.0    training_loss 5927.92 training_loss_running_mean 7147.37 learning_rate 0.00020000 total_sec 628.4   sec_per_tick 30.7    sec_per_sample 1.92    cpu_mem_gb 2.28   peak_gpu_mem_gb 9.70   peak_gpu_mem_reserved_gb 10.32 
+[2026-01-30 14:21:20,473][main][INFO] - samples 3008.0    training_loss 3828.71 training_loss_running_mean 6166.05 learning_rate 0.00020000 total_sec 938.4   sec_per_tick 28.3    sec_per_sample 1.77    cpu_mem_gb 2.28   peak_gpu_mem_gb 9.70   peak_gpu_mem_reserved_gb 10.32 
+[2026-01-30 14:26:18,403][main][INFO] - samples 4000.0    training_loss 3298.45 training_loss_running_mean 6317.60 learning_rate 0.00020000 total_sec 1236.4  sec_per_tick 30.2    sec_per_sample 1.89    cpu_mem_gb 2.28   peak_gpu_mem_gb 9.70   peak_gpu_mem_reserved_gb 10.32 
+[2026-01-30 14:31:18,167][main][INFO] - samples 5008.0    training_loss 16111.85 training_loss_running_mean 6689.33 learning_rate 0.00020000 total_sec 1536.1  sec_per_tick 26.2    sec_per_sample 1.64    cpu_mem_gb 2.28   peak_gpu_mem_gb 9.70   peak_gpu_mem_reserved_gb 10.32 
+[2026-01-30 14:31:18,168][checkpoint][WARNING] - Output directory checkpoints_regression_mswxdwd/checkpoints_regression does not exist, will attempt to create
+[2026-01-30 14:31:19,414][checkpoint][INFO] - Saved model state dictionary: /beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/checkpoints_regression_mswxdwd/checkpoints_regression/UNet.0.5008.mdlus
+[2026-01-30 14:31:20,706][checkpoint][INFO] - Saved training checkpoint: /beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff/checkpoints_regression_mswxdwd/checkpoints_regression/checkpoint.0.5008.pt
+[2026-01-30 14:36:21,162][main][INFO] - samples 6000.0    training_loss 1747.01 training_loss_running_mean 8875.61 learning_rate 0.00020000 total_sec 1839.1  sec_per_tick 26.1    sec_per_sample 1.63    cpu_mem_gb 2.28   peak_gpu_mem_gb 9.70   peak_gpu_mem_reserved_gb 10.32 
+[2026-01-30 14:41:33,382][main][INFO] - samples 7008.0    training_loss 4398.72 training_loss_running_mean 7647.81 learning_rate 0.00020000 total_sec 2151.3  sec_per_tick 27.8    sec_per_sample 1.74    cpu_mem_gb 2.28   peak_gpu_mem_gb 9.70   peak_gpu_mem_reserved_gb 10.32 

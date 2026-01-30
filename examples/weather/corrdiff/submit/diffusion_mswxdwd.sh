@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=diffusion_mswxdwd             # Job name
-#SBATCH --output=submit/logs/jnb.job.%j.out  # STDOUT file
-#SBATCH --error=submit/logs/jnb.job.%j.err   # STDERR file
+#SBATCH --output=submit/logs/diffusion_mswxdwd.%j.out  # STDOUT file
+#SBATCH --error=submit/logs/diffusion_mswxdwd.%j.err   # STDERR file
 #SBATCH --time=3-00:00:00                # Runtime (D-HH:MM:SS)
 #SBATCH --ntasks=1                        # Single task (torchrun will handle multiple GPUs)
 #SBATCH --cpus-per-task=40               # CPU cores per task
@@ -21,7 +21,22 @@ cd /beegfs/muduchuru/codes/physicsnemo/examples/weather/corrdiff || exit 1
 echo "Running on node: $(hostname)"
 nvidia-smi
 
+# --- Create checkpoint directory ---
+mkdir -p checkpoints_diffusion_mswxdwd
+
+# --- Find the newest UNet regression checkpoint ---
+REGRESSION_CKPT=$(ls -t checkpoints_regression_mswxdwd/UNet.*.mdlus 2>/dev/null | head -n 1)
+
+if [ -z "$REGRESSION_CKPT" ]; then
+    echo "ERROR: No regression checkpoint found in checkpoints_regression_mswxdwd/"
+    echo "Please train the regression model first using regression_mswxdwd.sh"
+    exit 1
+fi
+
+echo "Using regression checkpoint: $REGRESSION_CKPT"
+
 # --- Launch distributed training ---
 torchrun --nproc-per-node=2 train.py --config-name=config_training_mswxdwd_diffusion.yaml \
     ++training.hp.total_batch_size=16 \
-    ++training.io.regression_checkpoint_path=checkpoints_regression/UNet.0.565008.mdlus
+    ++training.io.checkpoint_dir=checkpoints_diffusion_mswxdwd \
+    ++training.io.regression_checkpoint_path=${REGRESSION_CKPT}
