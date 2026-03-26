@@ -182,4 +182,22 @@ sbatch_logs/
 #model checkpoints
 *.mdlus
 *.pt
+
+# Data files
 *.nc
+*.nc4
+*.hdf
+*.hdf5
+*.h5
+*.grib
+*.grib2
+*.zarr
+*.csv
+*.xlsx
+*.xls
+*.parquet
+
+# Log files
+*.ESMF_LogFile
+PET*.ESMF_LogFile
+*.log
