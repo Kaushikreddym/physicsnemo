@@ -10,7 +10,6 @@ hydra:
 
 # Base parameters for dataset, model, and generation
 defaults:
-
     - dataset: era5mswx
     # The dataset type for training.
     # Accepted values:
@@ -20,6 +19,7 @@ defaults:
     #   `custom`: user-defined dataset. Parameters need to be specified below.
 
     - generation: non_patched
+    - _self_
     # The base generation parameters.
     # Accepted values:
     #     `patched`: base parameters for a patch-based model
@@ -35,12 +35,14 @@ dataset:
     stats_mswx: /beegfs/muduchuru/data/mswx/mswx_stats.json
     center_latlon: [51.0, 10.0]
     train: False
+    train_years: [1999, 2020]
+    val_years: [2021, 2024]
 # Generation parameters to specialize
 generation:
     #inference_mode: regression
     num_ensembles: 8
     # int, number of ensembles to generate per input
-    seed_batch_size: 1
+    seed_batch_size: 4
     # int, size of the batched inference
     # patch_shape_x: 448
     # patch_shape_y: 448
@@ -68,6 +70,8 @@ generation:
         # Path to checkpoint file for the diffusion model  
         reg_ckpt_filename: <regression_checkpoint.mdlus>
         # Path to checkpoint filename for the mean predictor model
+        output_filename: ./generated/output.nc
+        # Path to output file for generated data
 
 # Parameters for wandb logging
 wandb:

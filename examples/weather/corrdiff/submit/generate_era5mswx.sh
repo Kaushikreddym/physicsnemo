@@ -23,8 +23,8 @@ nvidia-smi
 
 # --- Configuration ---
 # Find the newest checkpoints
-RES_CKPT=$(ls -t checkpoints_diffusion_era5mswx/EDMPrecond*.mdlus 2>/dev/null | head -n 1)
-REG_CKPT=$(ls -t checkpoints_regression_era5mswx/UNet.*.mdlus 2>/dev/null | head -n 1)
+RES_CKPT=$(ls -t checkpoints_diffusion_era5mswx/checkpoints_diffusion/EDMPrecond*.mdlus 2>/dev/null | head -n 1)
+REG_CKPT=$(ls -t checkpoints_regression_era5mswx/checkpoints_regression/UNet.*.mdlus 2>/dev/null | head -n 1)
 
 if [ -z "$RES_CKPT" ]; then
     echo "ERROR: No diffusion checkpoint found in checkpoints_diffusion_era5mswx/"
@@ -41,9 +41,9 @@ fi
 echo "Using diffusion checkpoint: $RES_CKPT"
 echo "Using regression checkpoint: $REG_CKPT"
 
-# Define years to process - includes both training (1989-2020) and validation (2021-2024)
+# Define years to process - includes both training (1999-2020) and validation (2021-2024)
 # Training years
-TRAIN_YEARS=($(seq 1989 2020))
+TRAIN_YEARS=($(seq 1999 2020))
 # Validation years
 VAL_YEARS=(2021 2022 2023 2024)
 
@@ -75,7 +75,7 @@ for YEAR in "${ALL_YEARS[@]}"; do
     OUTPUT_FILE="./generated/era5mswx_corrdiff_fulldomain_${YEAR}.nc"
     
     # Determine if this is a training year or validation year
-    if [ $YEAR -ge 1989 ] && [ $YEAR -le 2020 ]; then
+    if [ $YEAR -ge 1999 ] && [ $YEAR -le 2020 ]; then
         TRAIN_FLAG="True"
         YEAR_TYPE="training"
     else
@@ -88,15 +88,12 @@ for YEAR in "${ALL_YEARS[@]}"; do
     # Create output directory if it doesn't exist
     mkdir -p ./generated
     
-    # Run generation for this year with full domain tiling
-    python generate.py --config-name=config_generate_era5mswx.yaml \
+    # Run generation for this year with full domain tiling using torchrun
+    torchrun --nproc_per_node=2 generate.py --config-name=config_generate_era5mswx.yaml \
         generation.io.res_ckpt_filename=${RES_CKPT} \
         generation.io.reg_ckpt_filename=${REG_CKPT} \
         generation.times_range="[${START_DATE}, ${END_DATE}, 1d]" \
         generation.io.output_filename=${OUTPUT_FILE} \
-        dataset.center_latlon=null \
-        generation.patch_shape_x=256 \
-        generation.patch_shape_y=256 \
         dataset.train=${TRAIN_FLAG}
     
     if [ $? -eq 0 ]; then

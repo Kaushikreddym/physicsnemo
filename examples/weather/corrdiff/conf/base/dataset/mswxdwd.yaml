@@ -7,5 +7,5 @@ stats_mswx: ???
 # Names of output channels.
 output_channels: ["tas", "pr",'tasmax', 'tasmin']
 input_channels: ['tas', 'pr', 'tasmax', 'tasmin']
-static_channels: ["elevation","lsm",'dwd_mask','pos_embed']
+static_channels: ["elevation","lsm",'dwd_mask',"pos_embed"]
 normalize: True

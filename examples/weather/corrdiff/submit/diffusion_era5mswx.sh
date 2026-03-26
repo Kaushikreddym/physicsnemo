@@ -25,7 +25,7 @@ nvidia-smi
 mkdir -p checkpoints_diffusion_era5mswx
 
 # --- Find the newest UNet regression checkpoint ---
-REGRESSION_CKPT=$(ls -t checkpoints_regression_era5mswx/UNet.*.mdlus 2>/dev/null | head -n 1)
+REGRESSION_CKPT=$(ls -t checkpoints_regression_era5mswx/checkpoints_regression/UNet.*.mdlus 2>/dev/null | head -n 1)
 
 if [ -z "$REGRESSION_CKPT" ]; then
     echo "ERROR: No regression checkpoint found in checkpoints_regression_era5mswx/"

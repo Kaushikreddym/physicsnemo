@@ -18,12 +18,12 @@ defaults:
 # Dataset parameters
 dataset:
     data_path: /beegfs/muduchuru/data/
-    stats_dwd: /beegfs/muduchuru/data/hyras_daily/hyras_stats.json
+    stats_dwd: /beegfs/muduchuru/data/hyras/hyras_stats.json
     stats_mswx: /beegfs/muduchuru/data/mswx/mswx_stats.json
 
 validation:
     data_path: /beegfs/muduchuru/data/
-    stats_dwd: /beegfs/muduchuru/data/hyras_daily/hyras_stats.json
+    stats_dwd: /beegfs/muduchuru/data/hyras/hyras_stats.json
     stats_mswx: /beegfs/muduchuru/data/mswx/mswx_stats.json
     val_years: [2021, 2024]  # or your desired validation years
 

@@ -367,6 +367,17 @@ class era5_mswx(DownscalingDataset):
         if self.normalize:
             return (x - self.output_mean) / self.output_std
         return x
+    def denormalize_input(self, x):
+        """Reverse the input normalization."""
+        if self.normalize:
+            return x * self.input_std + self.input_mean
+        return x
+
+    def denormalize_output(self, x):
+        """Reverse the output normalization."""
+        if self.normalize:
+            return x * self.output_std + self.output_mean
+        return x
 
     # ----------------------------------------------------
     # ✅ Meta

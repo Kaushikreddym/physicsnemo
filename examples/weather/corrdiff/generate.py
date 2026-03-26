@@ -27,6 +27,7 @@ from torch.distributed import gather
 import numpy as np
 import nvtx
 import netCDF4 as nc
+import tqdm
 from physicsnemo.distributed import DistributedManager
 from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
 from physicsnemo.experimental.models.diffusion.preconditioning import (
@@ -41,6 +42,131 @@ from physicsnemo.utils.corrdiff import (
     regression_step,
     diffusion_step,
 )
+
+# Custom diffusion step that supports patching
+def diffusion_step_with_patching(
+    net: torch.nn.Module,
+    sampler_fn: callable,
+    img_shape: tuple,
+    img_out_channels: int,
+    rank_batches: list,
+    img_lr: torch.Tensor,
+    rank: int,
+    device: torch.device,
+    mean_hr: torch.Tensor = None,
+    lead_time_label: torch.Tensor = None,
+    patching: GridPatching2D = None,
+    distribution: str = "normal",
+    nu: int = None,
+    **kwargs,
+) -> torch.Tensor:
+    """
+    Modified diffusion step that supports patching for tiled generation.
+    """
+    # Check img_lr dimensions match expected shape
+    if img_lr.shape[2:] != img_shape:
+        raise ValueError(
+            f"img_lr shape {img_lr.shape[2:]} does not match expected shape img_shape {img_shape}"
+        )
+
+    # Check mean_hr dimensions if provided
+    if mean_hr is not None:
+        if mean_hr.shape[2:] != img_shape:
+            raise ValueError(
+                f"mean_hr shape {mean_hr.shape[2:]} does not match expected shape img_shape {img_shape}"
+            )
+        if mean_hr.shape[0] != 1:
+            raise ValueError(f"mean_hr must have batch size 1, got {mean_hr.shape[0]}")
+
+    img_lr = img_lr.to(memory_format=torch.channels_last)
+
+    # Handling of the high-res mean and patching
+    additional_args = {}
+    if mean_hr is not None:
+        additional_args["mean_hr"] = mean_hr
+    if lead_time_label is not None:
+        additional_args["lead_time_label"] = lead_time_label
+    if patching is not None:
+        additional_args["patching"] = patching
+
+    # Loop over batches - simplified to work with existing sampler
+    all_images = []
+    for batch_seeds in rank_batches:
+        with nvtx.annotate(f"generate {len(all_images)}", color="rapids"):
+            batch_size = len(batch_seeds)
+            if batch_size == 0:
+                continue
+
+            # Use a simple approach - just take first seed and convert to int
+            seed_int = int(batch_seeds[0]) if hasattr(batch_seeds[0], 'item') else int(batch_seeds[0])
+            torch.manual_seed(seed_int)
+            
+            latents_shape = [
+                img_lr.shape[0],
+                img_out_channels,
+                img_shape[0],
+                img_shape[1],
+            ]
+            latents = torch.randn(
+                latents_shape,
+                device=device,
+            ).to(memory_format=torch.channels_last)
+
+            with torch.inference_mode():
+                images = sampler_fn(
+                    net, latents, img_lr, **additional_args, **kwargs
+                )
+            all_images.append(images)
+    return torch.cat(all_images)
+
+# Custom regression step that supports patching
+def regression_step_with_patching(
+    net: torch.nn.Module,
+    img_lr: torch.Tensor,
+    latents_shape: tuple,
+    lead_time_label: torch.Tensor = None,
+    patching: GridPatching2D = None,
+) -> torch.Tensor:
+    """
+    Modified regression step that supports patching for tiled generation.
+    """
+    # Create a tensor of zeros with the given shape and move it to the appropriate device
+    x_hat = torch.zeros(latents_shape, dtype=torch.float64, device=net.device)
+
+    # Safety check: avoid silently ignoring batch elements in img_lr
+    if img_lr.shape[0] > 1:
+        raise ValueError(
+            f"Expected img_lr to have a batch size of 1, but found {img_lr.shape[0]}."
+        )
+
+    # Perform regression on a single batch element
+    with torch.inference_mode():
+        if patching is not None:
+            # Use patching for tiled inference
+            # Create patches from both inputs separately
+            x_hat_patches = patching.apply(input=x_hat[0:1])
+            img_lr_patches = patching.apply(input=img_lr)
+            
+            # Run the model on all patches at once
+            if lead_time_label is not None:
+                x_patches = net(x=x_hat_patches, img_lr=img_lr_patches, lead_time_label=lead_time_label)
+            else:
+                x_patches = net(x=x_hat_patches, img_lr=img_lr_patches)
+            
+            # Fuse the patches back into the full domain
+            x = patching.fuse(input=x_patches, batch_size=1)
+        else:
+            # Regular inference without patching
+            if lead_time_label is not None:
+                x = net(x=x_hat[0:1], img_lr=img_lr, lead_time_label=lead_time_label)
+            else:
+                x = net(x=x_hat[0:1], img_lr=img_lr)
+
+    # If the batch size is greater than 1, repeat the prediction
+    if x_hat.shape[0] > 1:
+        x = x.repeat([d if i == 0 else 1 for i, d in enumerate(x_hat.shape)])
+
+    return x
 
 from helpers.generate_helpers import (
     get_dataset_and_sampler,
@@ -156,10 +282,11 @@ def main(cfg: DictConfig) -> None:
     img_out_channels = len(dataset.output_channels())
 
     # Parse the patch shape
-    if cfg.generation.patching:
-        patch_shape_x = cfg.generation.patch_shape_x
-        patch_shape_y = cfg.generation.patch_shape_y
-    else:
+    patch_shape_x = getattr(cfg.generation, 'patch_shape_x', None)
+    patch_shape_y = getattr(cfg.generation, 'patch_shape_y', None)
+    
+    # If patch shapes are null or not specified, disable patching
+    if patch_shape_x is None or patch_shape_y is None:
         patch_shape_x, patch_shape_y = None, None
     patch_shape = (patch_shape_y, patch_shape_x)
     use_patching, img_shape, patch_shape = set_patch_shape(img_shape, patch_shape)
@@ -301,7 +428,7 @@ def main(cfg: DictConfig) -> None:
 
             if net_reg:
                 with nvtx.annotate("regression_model", color="yellow"):
-                    image_reg = regression_step(
+                    image_reg = regression_step_with_patching(
                         net=net_reg,
                         img_lr=img_lr,
                         latents_shape=(
@@ -311,6 +438,7 @@ def main(cfg: DictConfig) -> None:
                             img_shape[1],
                         ),  # (batch_size, C, H, W)
                         lead_time_label=lead_time_label,
+                        patching=patching,
                     )
             if net_res:
                 if cfg.generation.hr_mean_conditioning:
@@ -318,7 +446,7 @@ def main(cfg: DictConfig) -> None:
                 else:
                     mean_hr = None
                 with nvtx.annotate("diffusion model", color="purple"):
-                    image_res = diffusion_step(
+                    image_res = diffusion_step_with_patching(
                         net=net_res,
                         sampler_fn=sampler_fn,
                         img_shape=img_shape,
@@ -331,6 +459,7 @@ def main(cfg: DictConfig) -> None:
                         device=device,
                         mean_hr=mean_hr,
                         lead_time_label=lead_time_label,
+                        patching=patching,
                         **diffusion_step_kwargs,
                     )
             if cfg.generation.inference_mode == "regression":

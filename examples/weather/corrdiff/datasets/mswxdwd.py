@@ -96,12 +96,16 @@ class mswxdwd(DownscalingDataset):
         stats_mswx: Optional[str] = None,
         patch_size: Optional[Tuple[int, int]] = (128, 128),
         center_latlon: Optional[Tuple[float, float]] = None,
+        patch_index: Optional[int] = None,
+        overlap_pix: int = 0,
     ):
         super().__init__()
         self.data_path = data_path
         self.normalize = normalize
         self.patch_size = patch_size
         self.center_latlon = center_latlon
+        self.patch_index = patch_index
+        self.overlap_pix = overlap_pix
         self.factor = 16 # For UNet compatibility
         self.input_channels_list = input_channels
         self.output_channels_list = output_channels
@@ -357,19 +361,27 @@ class mswxdwd(DownscalingDataset):
             if ph > h or pw > w:
                 raise ValueError(f"Patch size {self.patch_size} larger than image {h, w}")
 
-            if self.center_latlon is not None:
+            if self.patch_index is not None:
+                # Use patch index for systematic grid-based patching
+                top, bottom, left, right = self.get_patch_bounds_by_index(
+                    self.patch_index, ph, pw, self.overlap_pix
+                )
+            elif self.center_latlon is not None:
+                # Use lat/lon coordinates
                 lat0, lon0 = self.center_latlon
                 top, left = self._get_center_indices(self.lat, self.lon, lat0, lon0, ph, pw)
             else:
+                # Random patching
                 top = np.random.randint(0, h - ph + 1)
                 left = np.random.randint(0, w - pw + 1)
+                
             input_arr = input_arr[:, top:top + ph, left:left + pw]
             output_arr = output_arr[:, top:top + ph, left:left + pw]
             # Save lat/lon for this patch (slice the full 2D lat/lon grid)
             self.last_patch_lat = self.lat[top:top + ph, left:left + pw]
             self.last_patch_lon = self.lon[top:top + ph, left:left + pw]
         else:
-            # No patching: last_patch_* point to the full-grid lat/lon
+            # No patching: return full domain - tiling handled in generate.py
             self.last_patch_lat = self.lat
             self.last_patch_lon = self.lon
         
@@ -377,17 +389,128 @@ class mswxdwd(DownscalingDataset):
         return output_arr, input_arr
     
     def _get_center_indices(self, lats, lons, lat0, lon0, ph, pw):
-        """Find top-left corner indices for a patch centered on (lat0, lon0)."""
-        iy = np.argmin(np.abs(lats - lat0))
-        ix = np.argmin(np.abs(lons - lon0))
+        """Find top-left corner indices for a patch with bottom-left at (lat0, lon0)."""
+        # For 2D lat/lon grids, find the closest point
+        dist = np.sqrt((lats - lat0)**2 + (lons - lon0)**2)
+        iy, ix = np.unravel_index(np.argmin(dist), lats.shape)
 
+        # For bottom-left coordinates, the bottom-left should be at (iy, ix)
+        # So the top-left corner is at (iy - (ph-1), ix)
+        top = int(iy - (ph - 1))
+        left = int(ix)
+        
         # Ensure patch fits inside the domain
-        iy = np.clip(iy, ph // 2, len(lats) - ph // 2)
-        ix = np.clip(ix, pw // 2, len(lons) - pw // 2)
-
-        top = int(iy - ph // 2)
-        left = int(ix - pw // 2)
+        top = np.clip(top, 0, lats.shape[0] - ph)
+        left = np.clip(left, 0, lats.shape[1] - pw)
+        
         return top, left
+    
+    def get_patch_bounds_by_index(self, patch_index: int, ph: int, pw: int, 
+                                  overlap_pix: int = 0) -> Tuple[int, int, int, int]:
+        """
+        Calculate patch bounds for a given patch index using non-overlapping grid.
+        
+        Parameters
+        ----------
+        patch_index : int
+            Index of the patch (0-based)
+        ph : int
+            Patch height
+        pw : int
+            Patch width
+        overlap_pix : int, optional
+            Number of pixels to overlap between patches (default: 0 for non-overlapping)
+            
+        Returns
+        -------
+        tuple
+            (top, bottom, left, right) bounds for the patch
+        """
+        h, w = self.lat.shape
+        
+        # Calculate grid dimensions
+        stride_y = ph - overlap_pix
+        stride_x = pw - overlap_pix
+        
+        patches_per_row = (w + stride_x - 1) // stride_x  # Ceiling division
+        patches_per_col = (h + stride_y - 1) // stride_y
+        
+        # Convert linear index to 2D grid coordinates
+        patch_row = patch_index // patches_per_row
+        patch_col = patch_index % patches_per_row
+        
+        # Calculate patch bounds
+        top = patch_row * stride_y
+        left = patch_col * stride_x
+        
+        # Ensure patch doesn't exceed image bounds
+        top = min(top, h - ph)
+        left = min(left, w - pw)
+        
+        bottom = top + ph
+        right = left + pw
+        
+        return top, bottom, left, right
+    
+    def get_total_patches(self, ph: int, pw: int, overlap_pix: int = 0) -> int:
+        """
+        Calculate total number of patches that can fit in the domain.
+        
+        Parameters
+        ----------
+        ph : int
+            Patch height
+        pw : int
+            Patch width
+        overlap_pix : int, optional
+            Number of pixels to overlap between patches (default: 0)
+            
+        Returns
+        -------
+        int
+            Total number of patches
+        """
+        h, w = self.lat.shape
+        stride_y = ph - overlap_pix
+        stride_x = pw - overlap_pix
+        
+        patches_per_row = (w + stride_x - 1) // stride_x
+        patches_per_col = (h + stride_y - 1) // stride_y
+        
+        return patches_per_row * patches_per_col
+    
+    def get_patch_center_latlon(self, patch_index: int, ph: int, pw: int, 
+                               overlap_pix: int = 0) -> Tuple[float, float]:
+        """
+        Get the center lat/lon coordinates for a given patch index.
+        
+        Parameters
+        ----------
+        patch_index : int
+            Index of the patch (0-based)
+        ph : int
+            Patch height
+        pw : int
+            Patch width
+        overlap_pix : int, optional
+            Number of pixels to overlap between patches (default: 0)
+            
+        Returns
+        -------
+        tuple
+            (center_lat, center_lon) coordinates
+        """
+        top, bottom, left, right = self.get_patch_bounds_by_index(patch_index, ph, pw, overlap_pix)
+        
+        # Get center indices
+        center_y = (top + bottom) // 2
+        center_x = (left + right) // 2
+        
+        # Get lat/lon at center
+        center_lat = float(self.lat[center_y, center_x])
+        center_lon = float(self.lon[center_y, center_x])
+        
+        return center_lat, center_lon
     def _apply_patch(self, in_arr, out_arr):
         ph, pw = self.patch_size
         _, h, w = in_arr.shape
@@ -510,8 +633,12 @@ class mswxdwd(DownscalingDataset):
         return self.times
 
     def image_shape(self):
-        """Return full image shape (H, W)."""
-        return self.patch_size
+        """Return the spatial shape of the data domain (H, W)."""
+        # If patch_size is specified, return the patch size (model expects this size)
+        if self.patch_size is not None:
+            return tuple(self.patch_size)
+        # Otherwise return the actual data grid shape
+        return self.lat.shape
 
     def info(self):
         return {

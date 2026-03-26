@@ -23,8 +23,8 @@ nvidia-smi
 
 # --- Configuration ---
 # Find the newest checkpoints
-RES_CKPT=$(ls -t checkpoints_diffusion_mswxdwd/EDMPrecond*.mdlus 2>/dev/null | head -n 1)
-REG_CKPT=$(ls -t checkpoints_regression_mswxdwd/UNet.*.mdlus 2>/dev/null | head -n 1)
+RES_CKPT=$(ls -t checkpoints_diffusion_mswxdwd/checkpoints_diffusion//EDMPrecond*.mdlus 2>/dev/null | head -n 1)
+REG_CKPT=$(ls -t checkpoints_regression_mswxdwd/checkpoints_regression/UNet.*.mdlus 2>/dev/null | head -n 1)
 
 if [ -z "$RES_CKPT" ]; then
     echo "ERROR: No diffusion checkpoint found in checkpoints_diffusion_mswxdwd/"
@@ -91,14 +91,11 @@ for YEAR in "${ALL_YEARS[@]}"; do
     # Run generation for this year with full domain tiling
     # Using torchrun for proper distributed setup
     # nproc-per-node should match available GPUs
-    python generate.py --config-name=config_generate_mswxdwd.yaml \
+    torchrun --nproc_per_node=2 generate.py --config-name=config_generate_mswxdwd.yaml \
         generation.io.res_ckpt_filename=${RES_CKPT} \
         generation.io.reg_ckpt_filename=${REG_CKPT} \
         generation.times_range="[${START_DATE}, ${END_DATE}, 1d]" \
-        generation.io.output_filename=${OUTPUT_FILE} \
-        dataset.center_latlon=null \
-        generation.patch_shape_x=128 \
-        generation.patch_shape_y=128 \
+        ++generation.io.output_filename=${OUTPUT_FILE} \
         dataset.train=${TRAIN_FLAG}
     
     if [ $? -eq 0 ]; then
